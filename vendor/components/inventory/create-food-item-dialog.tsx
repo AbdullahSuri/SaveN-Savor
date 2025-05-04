@@ -1,0 +1,244 @@
+"use client"
+
+import React, { ReactNode, useState } from "react"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
+import { api, FoodItem } from "@/services/api"
+import { toast } from "react-toastify"
+
+interface CreateFoodItemDialogProps {
+  children: ReactNode
+  onSuccess?: () => void // Add callback for successful creation
+}
+
+export function CreateFoodItemDialog({ children, onSuccess }: CreateFoodItemDialogProps) {
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [category, setCategory] = useState('')
+
+  const handleSubmit = async () => {
+    setLoading(true)
+    
+    // Get all form field values
+    const name = (document.getElementById('name') as HTMLInputElement)?.value
+    const originalPrice = parseFloat((document.getElementById('original-price') as HTMLInputElement)?.value || '0')
+    const discountedPrice = parseFloat((document.getElementById('discounted-price') as HTMLInputElement)?.value || '0')
+    const quantity = parseInt((document.getElementById('quantity') as HTMLInputElement)?.value || '0')
+    const expiryDate = (document.getElementById('expiry-date') as HTMLInputElement)?.value
+    const description = (document.getElementById('description') as HTMLTextAreaElement)?.value
+    const ingredientsInput = (document.getElementById('ingredients') as HTMLTextAreaElement)?.value
+    
+    // Parse ingredients from textarea
+    const ingredientsList = ingredientsInput
+      .split('\n')
+      .map(i => i.trim())
+      .filter(i => i.length > 0)
+    
+    if (ingredientsList.length === 0) {
+      toast.error("Please add at least one ingredient")
+      setLoading(false)
+      return
+    }
+    
+    try {
+      const foodItem: Omit<FoodItem, '_id' | 'emissions'> = {
+        name: name || '',
+        category: category,
+        originalPrice: originalPrice,
+        discountedPrice: discountedPrice,
+        quantity: quantity,
+        expiryDate: expiryDate || '',
+        description: description || '',
+        dietary: [],
+        vendor: {
+          name: 'Spice Garden',
+          id: 'vendor-123',
+          location: 'Dubai'
+        },
+        ingredients: [] // Will be added by API
+      }
+      
+      // Get checkbox values
+      const isVegetarian = (document.getElementById('vegetarian') as HTMLInputElement)?.checked
+      const isVegan = (document.getElementById('vegan') as HTMLInputElement)?.checked
+      const isGlutenFree = (document.getElementById('gluten-free') as HTMLInputElement)?.checked
+      const isDairyFree = (document.getElementById('dairy-free') as HTMLInputElement)?.checked
+      
+      if (isVegetarian) foodItem.dietary.push('Vegetarian')
+      if (isVegan) foodItem.dietary.push('Vegan')
+      if (isGlutenFree) foodItem.dietary.push('Gluten Free')
+      if (isDairyFree) foodItem.dietary.push('Dairy Free')
+      
+      // Create the food item with emissions calculation
+      const createdItem = await api.createFoodItem(foodItem, ingredientsList)
+      
+      toast.success(`Food item created successfully! CO2 saved: ${createdItem.emissions?.saved.toFixed(1)} kg`)
+      setOpen(false)
+      
+      // Call the onSuccess callback to refresh the inventory list
+      if (onSuccess) {
+        onSuccess()
+      }
+    } catch (error) {
+      console.error('Error creating food item:', error)
+      toast.error('Failed to create food item')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Reset form when dialog closes
+  const handleDialogChange = (open: boolean) => {
+    setOpen(open)
+    if (!open) {
+      // Reset form fields
+      const form = document.getElementById('create-food-item-form') as HTMLFormElement
+      if (form) {
+        form.reset()
+      }
+      setCategory('')
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleDialogChange}>
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <form id="create-food-item-form" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+          <DialogHeader>
+            <DialogTitle>Add New Food Item</DialogTitle>
+            <DialogDescription>Create a new surplus food item to list on SaveN&apos;Savor.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Item Name</Label>
+                <Input id="name" placeholder="Enter item name" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="category">Category</Label>
+                <Select onValueChange={setCategory} value={category} required>
+                  <SelectTrigger id="category">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="main-course">Main Course</SelectItem>
+                    <SelectItem value="appetizer">Appetizer</SelectItem>
+                    <SelectItem value="side">Side</SelectItem>
+                    <SelectItem value="dessert">Dessert</SelectItem>
+                    <SelectItem value="beverage">Beverage</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="original-price">Original Price ($)</Label>
+                <Input id="original-price" type="number" step="0.01" min="0" placeholder="0.00" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="discounted-price">Discounted Price ($)</Label>
+                <Input id="discounted-price" type="number" step="0.01" min="0" placeholder="0.00" required />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="quantity">Quantity Available</Label>
+                <Input id="quantity" type="number" min="0" placeholder="0" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="expiry-date">Expiry Date</Label>
+                <Input id="expiry-date" type="date" required />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ingredients">Ingredients (one per line)</Label>
+              <Textarea 
+                id="ingredients"
+                placeholder={`e.g.:
+Rice
+Chicken
+Turmeric
+Onions
+Vegetable oil`}
+                className="min-h-[120px]"
+                required
+              />
+              <p className="text-sm text-muted-foreground">Add each ingredient on a new line for accurate emissions calculation</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea id="description" placeholder="Describe the food item..." className="min-h-[80px]" />
+            </div>
+            <div className="space-y-2">
+              <Label>Dietary Preferences</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox id="vegetarian" />
+                  <label
+                    htmlFor="vegetarian"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Vegetarian
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox id="vegan" />
+                  <label
+                    htmlFor="vegan"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Vegan
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox id="gluten-free" />
+                  <label
+                    htmlFor="gluten-free"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Gluten Free
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox id="dairy-free" />
+                  <label
+                    htmlFor="dairy-free"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Dairy Free
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="image">Item Image</Label>
+              <Input id="image" type="file" accept="image/*" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={loading}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? 'Creating...' : 'Create Item'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
