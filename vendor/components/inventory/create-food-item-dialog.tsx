@@ -1,6 +1,6 @@
 "use client"
 
-import React, { ReactNode, useState } from "react"
+import React, { ReactNode, useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { api, FoodItem } from "@/services/api"
 import { toast } from "react-toastify"
+import { Upload, Camera } from "lucide-react"
 
 interface CreateFoodItemDialogProps {
   children: ReactNode
@@ -28,6 +29,21 @@ export function CreateFoodItemDialog({ children, onSuccess }: CreateFoodItemDial
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [category, setCategory] = useState('')
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setImageFile(file)
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
 
   const handleSubmit = async () => {
     setLoading(true)
@@ -82,8 +98,8 @@ export function CreateFoodItemDialog({ children, onSuccess }: CreateFoodItemDial
       if (isGlutenFree) foodItem.dietary.push('Gluten Free')
       if (isDairyFree) foodItem.dietary.push('Dairy Free')
       
-      // Create the food item with emissions calculation
-      const createdItem = await api.createFoodItem(foodItem, ingredientsList)
+      // Create the food item with emissions calculation and image
+      const createdItem = await api.createFoodItem(foodItem, ingredientsList, imageFile || undefined)
       
       toast.success(`Food item created successfully! CO2 saved: ${createdItem.emissions?.saved.toFixed(1)} kg`)
       setOpen(false)
@@ -110,6 +126,11 @@ export function CreateFoodItemDialog({ children, onSuccess }: CreateFoodItemDial
         form.reset()
       }
       setCategory('')
+      setImagePreview(null)
+      setImageFile(null)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
     }
   }
 
@@ -226,7 +247,34 @@ Vegetable oil`}
             </div>
             <div className="space-y-2">
               <Label htmlFor="image">Item Image</Label>
-              <Input id="image" type="file" accept="image/*" />
+              <div className="flex items-center gap-4">
+                <Input 
+                  id="image" 
+                  type="file" 
+                  accept="image/*" 
+                  ref={fileInputRef}
+                  onChange={handleImageChange}
+                  className="hidden"
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-2"
+                >
+                  <Upload className="h-4 w-4" />
+                  {imageFile ? 'Change Image' : 'Upload Image'}
+                </Button>
+                {imagePreview && (
+                  <div className="relative w-20 h-20 rounded-md overflow-hidden border">
+                    <img 
+                      src={imagePreview} 
+                      alt="Preview" 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <DialogFooter>
