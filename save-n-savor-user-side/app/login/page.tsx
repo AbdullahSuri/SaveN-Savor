@@ -20,10 +20,9 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Basic validation
     if (!email || !password) {
       toast({
         title: "Error",
@@ -33,15 +32,37 @@ export default function LoginPage() {
       return
     }
 
-    // Login logic would go here
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      })
 
-    toast({
-      title: "Login successful",
-      description: "Welcome back to Save N' Savor!",
-    })
+      const data = await res.json()
 
-    // Redirect to home page
-    router.push("/")
+      if (!res.ok) {
+        throw new Error(data.error || "Login failed")
+      }
+
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      toast({
+        title: "Login successful",
+        description: "Welcome back to Save N' Savor!",
+      })
+
+      // Redirect to home
+      window.location.href = "/"
+    } catch (err: any) {
+      toast({
+        title: "Login failed",
+        description: err.message,
+        variant: "destructive",
+      })
+    }
   }
 
   return (

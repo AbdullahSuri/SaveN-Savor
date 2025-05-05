@@ -13,8 +13,7 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Save N' Savor | Reduce Food Waste in UAE",
   description:
-    "Save N' Savor connects businesses with surplus food to environmentally conscious consumers in the UAE, reducing food waste and offering discounted meals.",
-    generator: 'v0.dev'
+    "Save N' Savor connects businesses with surplus food to environmentally conscious consumers in the UAE, reducing food waste and offering discounted meals."
 }
 
 export default function RootLayout({

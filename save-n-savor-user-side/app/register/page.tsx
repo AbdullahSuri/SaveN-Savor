@@ -33,7 +33,7 @@ export default function RegisterPage() {
     }))
   }
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
 
     // Basic validation
@@ -66,13 +66,38 @@ export default function RegisterPage() {
 
     // Registration logic would go here
 
-    toast({
-      title: "Registration successful",
-      description: "Welcome to Save N' Savor! You can now log in.",
-    })
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: formData.fullName,
+          email: formData.email,
+          password: formData.password,
+        }),
+      })
 
-    // Redirect to login page
-    router.push("/login")
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || "Registration failed")
+      }
+
+      toast({
+        title: "Registration successful",
+        description: "Welcome to Save N' Savor! You can now log in.",
+      })
+
+      router.push("/login")
+    } catch (err: any) {
+      toast({
+        title: "Registration failed",
+        description: err.message,
+        variant: "destructive",
+      })
+    }
   }
 
   return (
