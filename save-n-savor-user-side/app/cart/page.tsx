@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Trash2, Clock, CreditCard, AlertCircle } from "lucide-react"
+import { ArrowLeft, Trash2, Clock, CreditCard, AlertCircle, PlusCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
@@ -13,33 +13,15 @@ import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { toast } from "@/components/ui/use-toast"
 import { useCart } from "@/context/cart-context"
-
-// Mock cart data
-const initialCartItems = [
-  {
-    id: 1,
-    name: "Assorted Pastry Box",
-    vendor: "Sweet Delights Bakery",
-    price: 30,
-    quantity: 1,
-    image: "/placeholder.svg?key=vbvs3",
-    pickupTime: "Today, 5-7 PM",
-  },
-  {
-    id: 2,
-    name: "Mediterranean Lunch Box",
-    vendor: "Olive Garden Restaurant",
-    price: 25,
-    quantity: 2,
-    image: "/placeholder.svg?key=jf9ft",
-    pickupTime: "Today, 2-4 PM",
-  },
-]
+import { useUser } from "@/hooks/useUser"
 
 export default function CartPage() {
   const router = useRouter()
   const { cartItems, removeFromCart, updateQuantity, getCartTotal } = useCart()
+  const { user } = useUser()
   const [paymentMethod, setPaymentMethod] = useState("credit-card")
+
+  const [selectedCardIndex, setSelectedCardIndex] = useState<number | null>(null)
 
   const handleRemoveItem = (id: number | string) => {
     removeFromCart(id)
@@ -55,17 +37,13 @@ export default function CartPage() {
   }
 
   const handleCheckout = () => {
-    // Process payment and checkout logic would go here
     toast({
       title: "Order placed successfully!",
       description: "Your order has been placed. You will receive a confirmation shortly.",
     })
-
-    // Navigate to confirmation page
     router.push("/order-confirmation")
   }
 
-  // Calculate totals
   const subtotal = getCartTotal()
   const serviceFee = 2.0
   const total = subtotal + serviceFee
@@ -83,7 +61,6 @@ export default function CartPage() {
 
       {cartItems.length > 0 ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Cart Items */}
           <div className="lg:col-span-2">
             <Card>
               <CardHeader>
@@ -155,7 +132,6 @@ export default function CartPage() {
             </Alert>
           </div>
 
-          {/* Order Summary */}
           <div className="lg:col-span-1">
             <div className="sticky top-24">
               <Card>
@@ -202,24 +178,23 @@ export default function CartPage() {
 
                   {paymentMethod === "credit-card" && (
                     <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="card-number">Card Number</Label>
-                        <Input id="card-number" placeholder="1234 5678 9012 3456" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="expiry">Expiry Date</Label>
-                          <Input id="expiry" placeholder="MM/YY" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="cvv">CVV</Label>
-                          <Input id="cvv" placeholder="123" />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="name">Name on Card</Label>
-                        <Input id="name" placeholder="John Doe" />
-                      </div>
+                      <h3 className="font-medium mb-2">Cards</h3>
+                      <RadioGroup value={String(selectedCardIndex)} onValueChange={(val) => setSelectedCardIndex(Number(val))}>
+                        {(user?.paymentMethods ?? []).length > 0 ? (
+                          user.paymentMethods.map((card: { nameOnCard: string; cardNumberLast4: string; expiry: string }, idx: number) => (
+                            <div key={idx} className={`border rounded-md p-3 flex items-center space-x-3 ${selectedCardIndex === idx ? "ring-2 ring-green-600" : ""}`}>
+                              <RadioGroupItem value={String(idx)} id={`card-${idx}`} />
+                              <Label htmlFor={`card-${idx}`} className="flex flex-col gap-1">
+                                <span className="font-medium">{card.nameOnCard} •••• {card.cardNumberLast4}</span>
+                                <span className="text-sm text-gray-500">Expires {card.expiry}</span>
+                              </Label>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-gray-500">No saved cards found.</p>
+                        )}
+                      </RadioGroup>
+                      <Button variant="outline" className="w-full" onClick={() => router.push("/profile")}> <PlusCircle className="h-4 w-4 mr-2" /> Add New Card</Button>
                     </div>
                   )}
                 </CardContent>
@@ -252,7 +227,7 @@ export default function CartPage() {
           </div>
           <h3 className="text-lg font-medium mb-2">Your cart is empty</h3>
           <p className="text-gray-500 mb-6">Looks like you haven't added any items to your cart yet.</p>
-          <Button asChild className="bg-green-600 hover:bg-green-700">
+          <Button asChild className="bg-greaen-600 hover:bg-green-700">
             <Link href="/browse">Browse Available Food</Link>
           </Button>
         </div>
