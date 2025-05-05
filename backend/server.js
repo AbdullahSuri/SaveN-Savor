@@ -1,10 +1,25 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const multer = require('multer');
 require('dotenv').config();
 
 const app = express();
 const emissionsRoutes = require('./routes/emissions');
+
+// Configure multer for memory storage
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed!'), false);
+    }
+  }
+});
 
 // Middleware
 app.use(cors({
@@ -13,15 +28,17 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use('/api/emissions', emissionsRoutes);
+
 // MongoDB connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/savensavor';
 mongoose.connect(MONGODB_URI)
   .then(() => console.log('Connected to MongoDB'))
   .catch(err => console.error('MongoDB connection error:', err));
 
-// Food Item Schema
+// Food Item Schema with Base64 image storage
 const foodItemSchema = new mongoose.Schema({
   name: { type: String, required: true },
   category: { type: String, required: true },
@@ -41,7 +58,10 @@ const foodItemSchema = new mongoose.Schema({
     saved: { type: Number, default: 0 },
     total: { type: Number, default: 0 }
   },
-  image: { type: String, default: '' },
+  image: { 
+    data: { type: String, default: '' }, // Base64 string
+    contentType: { type: String, default: '' } // MIME type
+  },
   createdAt: { type: Date, default: Date.now }
 }, { 
   timestamps: true
@@ -80,13 +100,60 @@ app.get('/api/food-items/:id', async (req, res) => {
   }
 });
 
-// POST new food item
-app.post('/api/food-items', async (req, res) => {
+// GET image route
+app.get('/api/food-items/:id/image', async (req, res) => {
   try {
-    console.log('Received food item:', req.body);
-    const foodItem = new FoodItem(req.body);
+    const item = await FoodItem.findById(req.params.id);
+    if (!item || !item.image.data) {
+      return res.status(404).json({ message: 'Image not found' });
+    }
+    
+    // Send the base64 data
+    res.setHeader('Content-Type', item.image.contentType);
+    res.send(item.image.data);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// POST new food item with image upload
+app.post('/api/food-items', upload.single('image'), async (req, res) => {
+  try {
+    let itemData = {};
+    
+    // Check if we have form data or JSON
+    if (req.file || req.body) {
+      // Parse form data
+      itemData = {
+        name: req.body.name,
+        category: req.body.category,
+        originalPrice: parseFloat(req.body.originalPrice),
+        discountedPrice: parseFloat(req.body.discountedPrice),
+        quantity: parseInt(req.body.quantity),
+        expiryDate: req.body.expiryDate,
+        description: req.body.description || '',
+        dietary: req.body.dietary ? JSON.parse(req.body.dietary) : [],
+        vendor: req.body.vendor ? JSON.parse(req.body.vendor) : {},
+        ingredients: req.body.ingredients ? JSON.parse(req.body.ingredients) : [],
+        emissions: req.body.emissions ? JSON.parse(req.body.emissions) : {}
+      };
+      
+      // Handle image upload if present
+      if (req.file) {
+        itemData.image = {
+          data: req.file.buffer.toString('base64'),
+          contentType: req.file.mimetype
+        };
+      }
+    } else {
+      // JSON body
+      itemData = req.body;
+    }
+    
+    console.log('Received food item:', itemData);
+    const foodItem = new FoodItem(itemData);
     const savedItem = await foodItem.save();
-    console.log('Saved food item:', savedItem);
+    console.log('Saved food item:', savedItem._id);
     res.status(201).json(savedItem);
   } catch (error) {
     console.error('Error saving food item:', error);
@@ -95,11 +162,49 @@ app.post('/api/food-items', async (req, res) => {
 });
 
 // PUT (update) food item
-app.put('/api/food-items/:id', async (req, res) => {
+app.put('/api/food-items/:id', upload.single('image'), async (req, res) => {
   try {
+    let updateData = {};
+    
+    // Check if we have form data or JSON
+    if (req.file || req.body.name) {
+      // Parse form data
+      updateData = {
+        name: req.body.name,
+        category: req.body.category,
+        originalPrice: req.body.originalPrice ? parseFloat(req.body.originalPrice) : undefined,
+        discountedPrice: req.body.discountedPrice ? parseFloat(req.body.discountedPrice) : undefined,
+        quantity: req.body.quantity ? parseInt(req.body.quantity) : undefined,
+        expiryDate: req.body.expiryDate,
+        description: req.body.description,
+        dietary: req.body.dietary ? JSON.parse(req.body.dietary) : undefined,
+        vendor: req.body.vendor ? JSON.parse(req.body.vendor) : undefined,
+        ingredients: req.body.ingredients ? JSON.parse(req.body.ingredients) : undefined,
+        emissions: req.body.emissions ? JSON.parse(req.body.emissions) : undefined
+      };
+      
+      // Remove undefined values
+      Object.keys(updateData).forEach(key => {
+        if (updateData[key] === undefined) {
+          delete updateData[key];
+        }
+      });
+      
+      // Handle image upload if present
+      if (req.file) {
+        updateData.image = {
+          data: req.file.buffer.toString('base64'),
+          contentType: req.file.mimetype
+        };
+      }
+    } else {
+      // JSON body
+      updateData = req.body;
+    }
+    
     const item = await FoodItem.findByIdAndUpdate(
       req.params.id, 
-      req.body, 
+      updateData, 
       { new: true, runValidators: true }
     );
     if (!item) {
@@ -107,9 +212,11 @@ app.put('/api/food-items/:id', async (req, res) => {
     }
     res.json(item);
   } catch (error) {
+    console.error('Error updating food item:', error);
     res.status(400).json({ message: error.message });
   }
 });
+
 
 // DELETE food item
 app.delete('/api/food-items/:id', async (req, res) => {

@@ -10,7 +10,7 @@ let model = null;
 
 async function initializeGemini() {
   try {
-    const credentialsPath = path.resolve(__dirname, '../credentials/save-n-savor-990e41e5a1bd.json');
+    const credentialsPath = path.resolve(__dirname, '../credentials/save-n-savor-26ebdf8139b8.json');
     process.env.GOOGLE_APPLICATION_CREDENTIALS = credentialsPath;
     
     const auth = new GoogleAuth({

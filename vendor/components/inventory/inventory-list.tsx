@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Edit, MoreHorizontal, Trash, Leaf } from "lucide-react"
+import { Edit, MoreHorizontal, Trash, Leaf, Image as ImageIcon } from "lucide-react"
 import { EditFoodItemDialog } from "@/components/inventory/edit-food-item-dialog"
 import { api, FoodItem } from '@/services/api'
 
@@ -85,6 +85,14 @@ export function InventoryList({ refreshTrigger }: InventoryListProps) {
     }
   }
 
+  const getImageUrl = (item: FoodItem) => {
+    if (item._id && item.image?.data) {
+      // Return base64 data URL for images stored in MongoDB
+      return `data:${item.image.contentType};base64,${item.image.data}`
+    }
+    return null
+  }
+
   return (
     <div className="rounded-md border">
       <Table>
@@ -97,6 +105,7 @@ export function InventoryList({ refreshTrigger }: InventoryListProps) {
                 aria-label="Select all"
               />
             </TableHead>
+            <TableHead className="w-[80px]">Image</TableHead>
             <TableHead>Name</TableHead>
             <TableHead className="hidden md:table-cell">Category</TableHead>
             <TableHead>Price</TableHead>
@@ -111,11 +120,11 @@ export function InventoryList({ refreshTrigger }: InventoryListProps) {
         <TableBody>
           {loading ? (
             <TableRow>
-              <TableCell colSpan={10} className="text-center">Loading...</TableCell>
+              <TableCell colSpan={11} className="text-center">Loading...</TableCell>
             </TableRow>
           ) : inventoryItems.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+              <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                 No food items found. Click 'Add New Item' to get started.
               </TableCell>
             </TableRow>
@@ -128,6 +137,21 @@ export function InventoryList({ refreshTrigger }: InventoryListProps) {
                     onCheckedChange={() => toggleSelectItem(item._id!)}
                     aria-label={`Select ${item.name}`}
                   />
+                </TableCell>
+                <TableCell>
+                  <div className="w-16 h-16 rounded-md overflow-hidden border">
+                    {getImageUrl(item) ? (
+                      <img 
+                        src={getImageUrl(item)!} 
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-muted flex items-center justify-center">
+                        <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="font-medium">{item.name}</TableCell>
                 <TableCell className="hidden md:table-cell">{item.category}</TableCell>
@@ -168,7 +192,7 @@ export function InventoryList({ refreshTrigger }: InventoryListProps) {
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      <EditFoodItemDialog foodItem={item}>
+                      <EditFoodItemDialog foodItem={item} onSuccess={fetchItems}>
                         <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                           <Edit className="mr-2 h-4 w-4" />
                           Edit
