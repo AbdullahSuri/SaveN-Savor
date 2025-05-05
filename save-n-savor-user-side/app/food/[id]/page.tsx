@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { ArrowLeft, MapPin, Clock, Utensils, Star, Plus, Minus, Share2, Heart, ShoppingCart } from "lucide-react"
@@ -14,9 +14,10 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/components/ui/use-toast"
 import { useCart } from "@/context/cart-context"
+import { Skeleton } from "@/components/ui/skeleton"
 
-// Mock data for food item details
-const foodItems = [
+// Mock data for food item details (fallback if API fails)
+const mockFoodItems = [
   {
     id: "1",
     name: "Assorted Pastry Box",
@@ -85,40 +86,101 @@ const foodItems = [
   },
 ]
 
+// Interface for food item
+interface FoodItem {
+  id: string
+  name: string
+  vendor: string
+  vendorId: string
+  originalPrice: number
+  discountedPrice: number
+  image: string
+  distance: string
+  cuisine: string
+  dietary: string[]
+  pickupTime: string
+  rating: number
+  description: string
+  address: string
+  lat: number
+  lng: number
+  reviews: {
+    id: number
+    user: string
+    rating: number
+    comment: string
+    date: string
+  }[]
+  quantity: number
+  expiryDate?: string
+  ingredients?: string[]
+  emissions?: {
+    saved: number
+    total: number
+  }
+}
+
 export default function FoodDetailPage() {
   const params = useParams()
   const router = useRouter()
   const id = params.id as string
 
-  // Find the food item with the matching ID
-  const foodItem = foodItems.find((item) => item.id === id)
-
+  const [foodItem, setFoodItem] = useState<FoodItem | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [selectedPickupTime, setSelectedPickupTime] = useState("")
   const [isLiked, setIsLiked] = useState(false)
 
   const { addToCart } = useCart()
 
-  // Handle if food item not found
-  if (!foodItem) {
-    return (
-      <div className="container mx-auto px-4 py-12 text-center">
-        <h1 className="text-2xl font-bold mb-4">Food item not found</h1>
-        <p className="mb-6">The food item you're looking for doesn't exist or has been removed.</p>
-        <Button asChild>
-          <Link href="/browse">Browse Available Food</Link>
-        </Button>
-      </div>
-    )
-  }
+  // Fetch food item data
+  useEffect(() => {
+    const fetchFoodItem = async () => {
+      try {
+        setIsLoading(true)
+
+        // First check if the item is in our mock data
+        const mockItem = mockFoodItems.find((item) => item.id === id)
+
+        if (mockItem) {
+          setFoodItem(mockItem)
+          setIsLoading(false)
+          return
+        }
+
+        // If not in mock data, try to fetch from API
+        const response = await fetch(`/api/food-items/${id}`)
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            throw new Error("Food item not found")
+          }
+          throw new Error("Failed to fetch food item")
+        }
+
+        const data = await response.json()
+        setFoodItem(data)
+      } catch (err) {
+        console.error("Error fetching food item:", err)
+        setError((err as Error).message || "Failed to load food item")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchFoodItem()
+  }, [id])
 
   const handleQuantityChange = (newQuantity: number) => {
-    if (newQuantity >= 1 && newQuantity <= foodItem.quantity) {
+    if (foodItem && newQuantity >= 1 && newQuantity <= foodItem.quantity) {
       setQuantity(newQuantity)
     }
   }
 
   const handleAddToCart = () => {
+    if (!foodItem) return
+
     if (!selectedPickupTime) {
       toast({
         title: "Please select a pickup time",
@@ -138,6 +200,56 @@ export default function FoodDetailPage() {
       image: foodItem.image,
       pickupTime: selectedPickupTime === "5-6pm" ? "5:00 PM - 6:00 PM" : "6:00 PM - 7:00 PM",
     })
+  }
+
+  // Loading skeleton
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <Button variant="ghost" className="mb-6" asChild>
+          <Link href="/browse">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Browse
+          </Link>
+        </Button>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-6">
+            <Skeleton className="h-[400px] w-full rounded-lg" />
+            <div className="space-y-4">
+              <Skeleton className="h-10 w-3/4" />
+              <Skeleton className="h-6 w-1/2" />
+              <div className="flex gap-4">
+                <Skeleton className="h-6 w-24" />
+                <Skeleton className="h-6 w-24" />
+                <Skeleton className="h-6 w-24" />
+              </div>
+              <div className="flex gap-2">
+                <Skeleton className="h-8 w-20 rounded-full" />
+                <Skeleton className="h-8 w-20 rounded-full" />
+              </div>
+              <Skeleton className="h-32 w-full" />
+            </div>
+          </div>
+          <div className="lg:col-span-1">
+            <Skeleton className="h-[600px] w-full rounded-lg" />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (error || !foodItem) {
+    return (
+      <div className="container mx-auto px-4 py-12 text-center">
+        <h1 className="text-2xl font-bold mb-4">Food item not found</h1>
+        <p className="mb-6">The food item you're looking for doesn't exist or has been removed.</p>
+        <Button asChild>
+          <Link href="/browse">Browse Available Food</Link>
+        </Button>
+      </div>
+    )
   }
 
   const discountPercentage = Math.round(
@@ -203,10 +315,29 @@ export default function FoodDetailPage() {
               ))}
             </div>
 
+            {foodItem.expiryDate && (
+              <div className="mt-4">
+                <Badge variant="outline" className="bg-amber-50 text-amber-700">
+                  Expires: {foodItem.expiryDate}
+                </Badge>
+              </div>
+            )}
+
             <div className="mt-6">
               <h2 className="text-xl font-semibold mb-2">Description</h2>
               <p className="text-gray-600">{foodItem.description}</p>
             </div>
+
+            {foodItem.ingredients && foodItem.ingredients.length > 0 && (
+              <div className="mt-6">
+                <h2 className="text-xl font-semibold mb-2">Ingredients</h2>
+                <ul className="list-disc pl-5 text-gray-600">
+                  {foodItem.ingredients.map((ingredient, index) => (
+                    <li key={index}>{ingredient}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             <div className="mt-6">
               <h2 className="text-xl font-semibold mb-2">Pickup Location</h2>

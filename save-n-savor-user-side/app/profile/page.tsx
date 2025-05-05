@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { User, Mail, Phone, MapPin, CreditCard, Bell, Settings, LogOut, Edit, Leaf, ShoppingBag } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "@/components/ui/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { useUser } from "@/hooks/useUser"
+import { useRouter } from "next/navigation"
 
 export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false)
@@ -23,9 +24,30 @@ export default function ProfilePage() {
   const [openAddress, setOpenAddress] = useState(false)
   const [newPayment, setNewPayment] = useState({ nameOnCard: "", cardNumberLast4: "", expiry: "" })
   const [openPayment, setOpenPayment] = useState(false)
+  const [tab, setTab] = useState("profile")
+
+  // Sync tab state from URL hash on load
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace("#", "")
+      if (hash === "profile" || hash === "orders") {
+        setTab(hash)
+      }
+    }
+
+    window.addEventListener("hashchange", handleHashChange)
+    handleHashChange() // run once on mount
+    return () => window.removeEventListener("hashchange", handleHashChange)
+  }, [])
+
+  const handleTabChange = (value: string) => {
+    setTab(value)
+    window.history.replaceState(null, "", `#${value}`)
+  }
 
 
   if (!user) return null
+  const router = useRouter()
 
   const handleSaveProfile = () => {
     setIsEditing(false)
@@ -92,15 +114,9 @@ export default function ProfilePage() {
 
                 <div className="w-full mt-6 space-y-2">
                   <Button variant="outline" className="w-full justify-start" asChild>
-                    <Link href="/profile">
+                    <Link href="/profile#profile">
                       <User className="mr-2 h-4 w-4" />
                       Profile
-                    </Link>
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start" asChild>
-                    <Link href="/orders">
-                      <ShoppingBag className="mr-2 h-4 w-4" />
-                      Orders
                     </Link>
                   </Button>
                   <Button variant="outline" className="w-full justify-start" asChild>
@@ -109,16 +125,15 @@ export default function ProfilePage() {
                       Impact
                     </Link>
                   </Button>
-                  <Button variant="outline" className="w-full justify-start" asChild>
-                    <Link href="/notifications">
-                      <Bell className="mr-2 h-4 w-4" />
-                      Notifications
-                    </Link>
-                  </Button>
                   <Separator className="my-2" />
                   <Button
                     variant="outline"
                     className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50"
+                    onClick={() => {
+                      localStorage.removeItem("user")
+                      setUser(null)
+                      window.location.href = "/"
+                    }}
                   >
                     <LogOut className="mr-2 h-4 w-4" />
                     Logout
@@ -130,12 +145,10 @@ export default function ProfilePage() {
         </div>
 
         <div className="lg:col-span-3">
-          <Tabs defaultValue="profile">
-            <TabsList className="grid w-full grid-cols-4">
+          <Tabs value={tab} onValueChange={handleTabChange}>
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="profile">Profile</TabsTrigger>
               <TabsTrigger value="orders">Orders</TabsTrigger>
-              <TabsTrigger value="impact">Impact</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
 
             <TabsContent value="profile" className="mt-6">
@@ -289,9 +302,16 @@ export default function ProfilePage() {
                 </CardFooter>
               </Card>
             </TabsContent>
+
+
+
+            {/* Orders */}
+            <TabsContent value="orders" className="mt-6"></TabsContent>
           </Tabs>
         </div>
       </div>
     </div>
   )
 }
+
+

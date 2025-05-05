@@ -94,7 +94,7 @@ export default function Header() {
                     <Link href="/profile">Profile</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href="/orders">Orders</Link>
+                    <Link href="/profile#orders">Orders</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="/impact">My Impact</Link>
