@@ -68,13 +68,6 @@ export default function HowItWorksPage() {
         </Card>
       </div>
 
-      {/* CTA Section */}
-      <div className="text-center mb-16">
-        <Button asChild className="bg-green-600 hover:bg-green-700 px-8 py-6 text-lg">
-          <Link href="/restaurants">Start Rescuing Food Now</Link>
-        </Button>
-      </div>
-
       {/* Benefits Section */}
       <div className="mb-16">
         <h2 className="text-2xl font-bold mb-8 text-center text-green-600">Why It Matters</h2>
@@ -148,14 +141,6 @@ export default function HowItWorksPage() {
             </AccordionContent>
           </AccordionItem>
         </Accordion>
-      </div>
-
-      {/* Final CTA */}
-      <div className="mt-16 text-center">
-        <h3 className="text-xl font-semibold mb-4 text-gray-800">Ready to make a difference?</h3>
-        <Button asChild className="bg-green-600 hover:bg-green-700 px-8 py-6 text-lg">
-          <Link href="/signup">Join SaveN-Savor Today</Link>
-        </Button>
       </div>
     </div>
   );
