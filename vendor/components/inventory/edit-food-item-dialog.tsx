@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { type ReactNode, useState, useRef } from "react"
+import { type ReactNode, useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -35,6 +35,13 @@ export function EditFoodItemDialog({ children, foodItem, onSuccess }: EditFoodIt
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [category, setCategory] = useState(foodItem.category.toLowerCase())
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // Add state to track dietary preferences
+  const [dietaryPreferences, setDietaryPreferences] = useState<string[]>(foodItem.dietary || [])
+
+  // Update dietary preferences when foodItem changes
+  useEffect(() => {
+    setDietaryPreferences(foodItem.dietary || [])
+  }, [foodItem])
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -55,6 +62,17 @@ export function EditFoodItemDialog({ children, foodItem, onSuccess }: EditFoodIt
     return null
   }
 
+  // Toggle dietary preference
+  const toggleDietaryPreference = (preference: string) => {
+    setDietaryPreferences(prev => {
+      if (prev.includes(preference)) {
+        return prev.filter(p => p !== preference)
+      } else {
+        return [...prev, preference]
+      }
+    })
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -70,18 +88,6 @@ export function EditFoodItemDialog({ children, foodItem, onSuccess }: EditFoodIt
       const expiryDate = formData.get('expiry-date') as string
       const description = formData.get('description') as string
       
-      // Get checkbox values using their correct IDs
-      const isVegetarian = (document.getElementById(`vegetarian-${foodItem._id}`) as HTMLInputElement)?.checked
-      const isVegan = (document.getElementById(`vegan-${foodItem._id}`) as HTMLInputElement)?.checked
-      const isGlutenFree = (document.getElementById(`gluten-free-${foodItem._id}`) as HTMLInputElement)?.checked
-      const isDairyFree = (document.getElementById(`dairy-free-${foodItem._id}`) as HTMLInputElement)?.checked
-      
-      const dietary: string[] = []
-      if (isVegetarian) dietary.push('Vegetarian')
-      if (isVegan) dietary.push('Vegan')
-      if (isGlutenFree) dietary.push('Gluten Free')
-      if (isDairyFree) dietary.push('Dairy Free')
-      
       const updateData: Partial<FoodItem> = {
         name,
         category,
@@ -90,7 +96,7 @@ export function EditFoodItemDialog({ children, foodItem, onSuccess }: EditFoodIt
         quantity,
         expiryDate,
         description,
-        dietary
+        dietary: dietaryPreferences // Use the state variable for dietary preferences
       }
       
       await api.updateFoodItem(foodItem._id!, updateData, imageFile || undefined)
@@ -118,6 +124,8 @@ export function EditFoodItemDialog({ children, foodItem, onSuccess }: EditFoodIt
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
+      // Reset dietary preferences to the original food item values
+      setDietaryPreferences(foodItem.dietary || [])
     }
   }
 
@@ -214,40 +222,83 @@ export function EditFoodItemDialog({ children, foodItem, onSuccess }: EditFoodIt
             <div className="space-y-2">
               <Label>Dietary Preferences</Label>
               <div className="grid grid-cols-2 gap-2">
+                {/* Updated dietary preferences with exact options requested */}
                 <div className="flex items-center space-x-2">
-                  <Checkbox id={`vegetarian-${foodItem._id}`} defaultChecked={foodItem.dietary.includes("Vegetarian")} />
+                  <Checkbox 
+                    id="vegetarian" 
+                    checked={dietaryPreferences.includes("Vegetarian")}
+                    onCheckedChange={() => toggleDietaryPreference("Vegetarian")}
+                  />
                   <label
-                    htmlFor={`vegetarian-${foodItem._id}`}
+                    htmlFor="vegetarian"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                   >
                     Vegetarian
                   </label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Checkbox id={`vegan-${foodItem._id}`} defaultChecked={foodItem.dietary.includes("Vegan")} />
+                  <Checkbox 
+                    id="vegan" 
+                    checked={dietaryPreferences.includes("Vegan")}
+                    onCheckedChange={() => toggleDietaryPreference("Vegan")}
+                  />
                   <label
-                    htmlFor={`vegan-${foodItem._id}`}
+                    htmlFor="vegan"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                   >
                     Vegan
                   </label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Checkbox id={`gluten-free-${foodItem._id}`} defaultChecked={foodItem.dietary.includes("Gluten Free")} />
+                  <Checkbox 
+                    id="vegan-options" 
+                    checked={dietaryPreferences.includes("Vegan Options")}
+                    onCheckedChange={() => toggleDietaryPreference("Vegan Options")}
+                  />
                   <label
-                    htmlFor={`gluten-free-${foodItem._id}`}
+                    htmlFor="vegan-options"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                   >
-                    Gluten Free
+                    Vegan Options
                   </label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Checkbox id={`dairy-free-${foodItem._id}`} defaultChecked={foodItem.dietary.includes("Dairy Free")} />
+                  <Checkbox 
+                    id="gluten-free" 
+                    checked={dietaryPreferences.includes("Gluten-Free")}
+                    onCheckedChange={() => toggleDietaryPreference("Gluten-Free")}
+                  />
                   <label
-                    htmlFor={`dairy-free-${foodItem._id}`}
+                    htmlFor="gluten-free"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                   >
-                    Dairy Free
+                    Gluten-Free
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="pescatarian" 
+                    checked={dietaryPreferences.includes("Pescatarian")}
+                    onCheckedChange={() => toggleDietaryPreference("Pescatarian")}
+                  />
+                  <label
+                    htmlFor="pescatarian"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Pescatarian
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="vegetarian-options" 
+                    checked={dietaryPreferences.includes("Vegetarian Options")}
+                    onCheckedChange={() => toggleDietaryPreference("Vegetarian Options")}
+                  />
+                  <label
+                    htmlFor="vegetarian-options"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Vegetarian Options
                   </label>
                 </div>
               </div>

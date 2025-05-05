@@ -32,6 +32,8 @@ export function CreateFoodItemDialog({ children, onSuccess }: CreateFoodItemDial
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // Add state for dietary preferences
+  const [dietaryPreferences, setDietaryPreferences] = useState<string[]>([])
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -43,6 +45,17 @@ export function CreateFoodItemDialog({ children, onSuccess }: CreateFoodItemDial
       }
       reader.readAsDataURL(file)
     }
+  }
+
+  // Handle dietary preference toggle
+  const toggleDietaryPreference = (preference: string) => {
+    setDietaryPreferences(prev => {
+      if (prev.includes(preference)) {
+        return prev.filter(p => p !== preference)
+      } else {
+        return [...prev, preference]
+      }
+    })
   }
 
   const handleSubmit = async () => {
@@ -78,7 +91,7 @@ export function CreateFoodItemDialog({ children, onSuccess }: CreateFoodItemDial
         quantity: quantity,
         expiryDate: expiryDate || '',
         description: description || '',
-        dietary: [],
+        dietary: dietaryPreferences, // Use the state variable directly
         vendor: {
           name: 'Spice Garden',
           id: 'vendor-123',
@@ -86,17 +99,6 @@ export function CreateFoodItemDialog({ children, onSuccess }: CreateFoodItemDial
         },
         ingredients: [] // Will be added by API
       }
-      
-      // Get checkbox values
-      const isVegetarian = (document.getElementById('vegetarian') as HTMLInputElement)?.checked
-      const isVegan = (document.getElementById('vegan') as HTMLInputElement)?.checked
-      const isGlutenFree = (document.getElementById('gluten-free') as HTMLInputElement)?.checked
-      const isDairyFree = (document.getElementById('dairy-free') as HTMLInputElement)?.checked
-      
-      if (isVegetarian) foodItem.dietary.push('Vegetarian')
-      if (isVegan) foodItem.dietary.push('Vegan')
-      if (isGlutenFree) foodItem.dietary.push('Gluten Free')
-      if (isDairyFree) foodItem.dietary.push('Dairy Free')
       
       // Create the food item with emissions calculation and image
       const createdItem = await api.createFoodItem(foodItem, ingredientsList, imageFile || undefined)
@@ -128,6 +130,7 @@ export function CreateFoodItemDialog({ children, onSuccess }: CreateFoodItemDial
       setCategory('')
       setImagePreview(null)
       setImageFile(null)
+      setDietaryPreferences([]) // Reset dietary preferences
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
@@ -207,8 +210,13 @@ Vegetable oil`}
             <div className="space-y-2">
               <Label>Dietary Preferences</Label>
               <div className="grid grid-cols-2 gap-2">
+                {/* Updated dietary preferences with exact options requested */}
                 <div className="flex items-center space-x-2">
-                  <Checkbox id="vegetarian" />
+                  <Checkbox 
+                    id="vegetarian" 
+                    checked={dietaryPreferences.includes("Vegetarian")}
+                    onCheckedChange={() => toggleDietaryPreference("Vegetarian")}
+                  />
                   <label
                     htmlFor="vegetarian"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
@@ -217,7 +225,11 @@ Vegetable oil`}
                   </label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Checkbox id="vegan" />
+                  <Checkbox 
+                    id="vegan" 
+                    checked={dietaryPreferences.includes("Vegan")}
+                    onCheckedChange={() => toggleDietaryPreference("Vegan")}
+                  />
                   <label
                     htmlFor="vegan"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
@@ -226,21 +238,55 @@ Vegetable oil`}
                   </label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Checkbox id="gluten-free" />
+                  <Checkbox 
+                    id="vegan-options" 
+                    checked={dietaryPreferences.includes("Vegan Options")}
+                    onCheckedChange={() => toggleDietaryPreference("Vegan Options")}
+                  />
+                  <label
+                    htmlFor="vegan-options"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Vegan Options
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="gluten-free" 
+                    checked={dietaryPreferences.includes("Gluten-Free")}
+                    onCheckedChange={() => toggleDietaryPreference("Gluten-Free")}
+                  />
                   <label
                     htmlFor="gluten-free"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                   >
-                    Gluten Free
+                    Gluten-Free
                   </label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Checkbox id="dairy-free" />
+                  <Checkbox 
+                    id="pescatarian" 
+                    checked={dietaryPreferences.includes("Pescatarian")}
+                    onCheckedChange={() => toggleDietaryPreference("Pescatarian")}
+                  />
                   <label
-                    htmlFor="dairy-free"
+                    htmlFor="pescatarian"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                   >
-                    Dairy Free
+                    Pescatarian
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="vegetarian-options" 
+                    checked={dietaryPreferences.includes("Vegetarian Options")}
+                    onCheckedChange={() => toggleDietaryPreference("Vegetarian Options")}
+                  />
+                  <label
+                    htmlFor="vegetarian-options"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Vegetarian Options
                   </label>
                 </div>
               </div>

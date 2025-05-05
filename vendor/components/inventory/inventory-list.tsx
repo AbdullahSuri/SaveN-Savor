@@ -16,6 +16,7 @@ import {
 import { Edit, MoreHorizontal, Trash, Leaf, Image as ImageIcon } from "lucide-react"
 import { EditFoodItemDialog } from "@/components/inventory/edit-food-item-dialog"
 import { api, FoodItem } from '@/services/api'
+import { toast } from "react-toastify"
 
 interface InventoryListProps {
   refreshTrigger?: number; // Add this prop to trigger refresh
@@ -25,6 +26,7 @@ export function InventoryList({ refreshTrigger }: InventoryListProps) {
   const [selectedItems, setSelectedItems] = useState<string[]>([])
   const [inventoryItems, setInventoryItems] = useState<FoodItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchItems()
@@ -32,10 +34,14 @@ export function InventoryList({ refreshTrigger }: InventoryListProps) {
 
   const fetchItems = async () => {
     try {
+      setLoading(true)
       const items = await api.getFoodItems()
       setInventoryItems(items)
+      setError(null)
     } catch (error) {
       console.error('Error fetching items:', error)
+      setError('Failed to load inventory items. Please try again later.')
+      toast.error('Failed to load inventory items')
     } finally {
       setLoading(false)
     }
@@ -78,10 +84,15 @@ export function InventoryList({ refreshTrigger }: InventoryListProps) {
 
   const handleDelete = async (id: string) => {
     try {
+      setLoading(true)
       await api.deleteFoodItem(id)
+      toast.success('Item deleted successfully')
       fetchItems() // Refresh the list
     } catch (error) {
       console.error('Error deleting item:', error)
+      toast.error('Failed to delete item')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -89,12 +100,27 @@ export function InventoryList({ refreshTrigger }: InventoryListProps) {
     if (item._id && item.image?.data) {
       // Return base64 data URL for images stored in MongoDB
       return `data:${item.image.contentType};base64,${item.image.data}`
+    } else if (item._id) {
+      // Fallback to API's getImageUrl method if no embedded image data
+      return api.getImageUrl(item._id)
     }
     return null
   }
 
   return (
     <div className="rounded-md border">
+      {error && (
+        <div className="p-4 bg-red-50 text-red-600 border-b">
+          {error}
+          <Button 
+            variant="link" 
+            className="ml-2 p-0 h-auto text-red-600 underline" 
+            onClick={fetchItems}
+          >
+            Retry
+          </Button>
+        </div>
+      )}
       <Table>
         <TableHeader>
           <TableRow>
@@ -120,7 +146,12 @@ export function InventoryList({ refreshTrigger }: InventoryListProps) {
         <TableBody>
           {loading ? (
             <TableRow>
-              <TableCell colSpan={11} className="text-center">Loading...</TableCell>
+              <TableCell colSpan={11} className="text-center py-8">
+                <div className="flex justify-center items-center">
+                  <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-emerald-500 mr-2"></div>
+                  Loading inventory items...
+                </div>
+              </TableCell>
             </TableRow>
           ) : inventoryItems.length === 0 ? (
             <TableRow>
@@ -168,7 +199,7 @@ export function InventoryList({ refreshTrigger }: InventoryListProps) {
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
                   <div className="flex flex-wrap gap-1">
-                    {item.dietary.map((diet) => (
+                    {item.dietary && item.dietary.map((diet) => (
                       <Badge key={diet} variant="outline">
                         {diet}
                       </Badge>

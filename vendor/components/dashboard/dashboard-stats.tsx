@@ -1,7 +1,21 @@
+"use client"
+
 import { ArrowUpIcon, Leaf, DollarSign, ShoppingBag, Package } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect } from "react"
 
 export function DashboardStats() {
+  const [loading, setLoading] = useState(true)
+  
+  // Simulate loading state
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(false)
+    }, 1500)
+    
+    return () => clearTimeout(timer)
+  }, [])
+
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <Card>
@@ -10,11 +24,15 @@ export function DashboardStats() {
           <ShoppingBag className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">142</div>
+          {loading ? (
+            <div className="h-6 w-20 rounded-md bg-muted animate-pulse"></div>
+          ) : (
+            <div className="text-2xl font-bold">2,845</div>
+          )}
           <p className="text-xs text-muted-foreground">
             <span className="text-emerald-500 flex items-center">
               <ArrowUpIcon className="mr-1 h-3 w-3" />
-              12%
+              17%
             </span>{" "}
             from last month
           </p>
@@ -26,11 +44,15 @@ export function DashboardStats() {
           <DollarSign className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">$4,235</div>
+          {loading ? (
+            <div className="h-6 w-20 rounded-md bg-muted animate-pulse"></div>
+          ) : (
+            <div className="text-2xl font-bold">$68,592</div>
+          )}
           <p className="text-xs text-muted-foreground">
             <span className="text-emerald-500 flex items-center">
               <ArrowUpIcon className="mr-1 h-3 w-3" />
-              7.2%
+              12.5%
             </span>{" "}
             from last month
           </p>
@@ -42,11 +64,15 @@ export function DashboardStats() {
           <Package className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">324 kg</div>
+          {loading ? (
+            <div className="h-6 w-20 rounded-md bg-muted animate-pulse"></div>
+          ) : (
+            <div className="text-2xl font-bold">5,286 kg</div>
+          )}
           <p className="text-xs text-muted-foreground">
             <span className="text-emerald-500 flex items-center">
               <ArrowUpIcon className="mr-1 h-3 w-3" />
-              18%
+              23%
             </span>{" "}
             from last month
           </p>
@@ -58,11 +84,15 @@ export function DashboardStats() {
           <Leaf className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">1.2 tons</div>
+          {loading ? (
+            <div className="h-6 w-20 rounded-md bg-muted animate-pulse"></div>
+          ) : (
+            <div className="text-2xl font-bold">18.4 tons</div>
+          )}
           <p className="text-xs text-muted-foreground">
             <span className="text-emerald-500 flex items-center">
               <ArrowUpIcon className="mr-1 h-3 w-3" />
-              10%
+              19.2%
             </span>{" "}
             from last month
           </p>

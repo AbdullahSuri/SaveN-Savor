@@ -1,8 +1,24 @@
-import { Plus, Package, ShoppingBag, FileText } from "lucide-react"
+"use client"
+
+import { Plus, Package, ShoppingBag, FileText, BarChart3, Settings } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
 
 export function QuickActions() {
+  const router = useRouter()
+  const [isExporting, setIsExporting] = useState(false)
+  
+  // Simulate export action
+  const handleExportData = () => {
+    setIsExporting(true)
+    setTimeout(() => {
+      setIsExporting(false)
+      // You could trigger a toast notification here
+    }, 2000)
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -10,21 +26,49 @@ export function QuickActions() {
         <CardDescription>Common tasks you can perform quickly.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">
-        <Button className="w-full justify-start">
+        <Button className="w-full justify-start" onClick={() => router.push('/inventory?action=create')}>
           <Plus className="mr-2 h-4 w-4" />
           Add New Food Item
         </Button>
-        <Button variant="outline" className="w-full justify-start">
+        <Button 
+          variant="outline" 
+          className="w-full justify-start"
+          onClick={() => router.push('/inventory')}
+        >
           <Package className="mr-2 h-4 w-4" />
           Manage Inventory
         </Button>
-        <Button variant="outline" className="w-full justify-start">
+        <Button 
+          variant="outline" 
+          className="w-full justify-start"
+          onClick={() => router.push('/orders')}
+        >
           <ShoppingBag className="mr-2 h-4 w-4" />
           View Orders
         </Button>
-        <Button variant="outline" className="w-full justify-start">
+        <Button 
+          variant="outline" 
+          className="w-full justify-start"
+          onClick={() => handleExportData()}
+        >
           <FileText className="mr-2 h-4 w-4" />
-          Generate Reports
+          {isExporting ? 'Exporting...' : 'Export Weekly Report'}
+        </Button>
+        <Button 
+          variant="outline" 
+          className="w-full justify-start"
+          onClick={() => router.push('/insights')}
+        >
+          <BarChart3 className="mr-2 h-4 w-4" />
+          Analytics Dashboard
+        </Button>
+        <Button 
+          variant="outline" 
+          className="w-full justify-start"
+          onClick={() => router.push('/settings')}
+        >
+          <Settings className="mr-2 h-4 w-4" />
+          Account Settings
         </Button>
       </CardContent>
     </Card>
