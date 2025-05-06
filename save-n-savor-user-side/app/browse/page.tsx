@@ -25,103 +25,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import FoodMap from "@/components/food-map"
 import { Skeleton } from "@/components/ui/skeleton"
 
-// Mock data for food items (fallback if API fails)
-const mockFoodItems = [
-  // {
-  //   id: 1,
-  //   name: "Assorted Pastry Box",
-  //   vendor: "Sweet Delights Bakery",
-  //   originalPrice: 75,
-  //   discountedPrice: 30,
-  //   image: "/placeholder.svg?key=thgx3",
-  //   distance: "1.2 km",
-  //   cuisine: "Bakery",
-  //   dietary: ["Vegetarian"],
-  //   pickupTime: "Today, 5-7 PM",
-  //   rating: 4.5,
-  //   lat: 25.197197,
-  //   lng: 55.274376,
-  // },
-  // {
-  //   id: 2,
-  //   name: "Mediterranean Lunch Box",
-  //   vendor: "Olive Garden Restaurant",
-  //   originalPrice: 60,
-  //   discountedPrice: 25,
-  //   image: "/placeholder.svg?key=k2yre",
-  //   distance: "0.8 km",
-  //   cuisine: "Mediterranean",
-  //   dietary: ["Vegan Options"],
-  //   pickupTime: "Today, 2-4 PM",
-  //   rating: 4.2,
-  //   lat: 25.198765,
-  //   lng: 55.269876,
-  // },
-  // {
-  //   id: 3,
-  //   name: "Fresh Fruit Basket",
-  //   vendor: "Green Market Grocery",
-  //   originalPrice: 50,
-  //   discountedPrice: 20,
-  //   image: "/placeholder.svg?key=hqcw4",
-  //   distance: "2.5 km",
-  //   cuisine: "Grocery",
-  //   dietary: ["Vegan", "Gluten-Free"],
-  //   pickupTime: "Today, 3-6 PM",
-  //   rating: 4.7,
-  //   lat: 25.193456,
-  //   lng: 55.280123,
-  // },
-  // {
-  //   id: 4,
-  //   name: "Sushi Platter",
-  //   vendor: "Tokyo Bites",
-  //   originalPrice: 120,
-  //   discountedPrice: 45,
-  //   image: "/placeholder.svg?key=hhetj",
-  //   distance: "3.1 km",
-  //   cuisine: "Japanese",
-  //   dietary: ["Pescatarian"],
-  //   pickupTime: "Today, 7-9 PM",
-  //   rating: 4.8,
-  //   lat: 25.201234,
-  //   lng: 55.272345,
-  // },
-  // {
-  //   id: 5,
-  //   name: "Pizza Combo",
-  //   vendor: "Mama's Pizzeria",
-  //   originalPrice: 90,
-  //   discountedPrice: 40,
-  //   image: "/placeholder.svg?key=zl3lr",
-  //   distance: "1.5 km",
-  //   cuisine: "Italian",
-  //   dietary: ["Vegetarian Options"],
-  //   pickupTime: "Today, 6-8 PM",
-  //   rating: 4.3,
-  //   lat: 25.195678,
-  //   lng: 55.27789,
-  // },
-  // {
-  //   id: 6,
-  //   name: "Falafel Wrap Box",
-  //   vendor: "Lebanese Corner",
-  //   originalPrice: 45,
-  //   discountedPrice: 18,
-  //   image: "/placeholder.svg?key=25h07",
-  //   distance: "0.9 km",
-  //   cuisine: "Middle Eastern",
-  //   dietary: ["Vegan"],
-  //   pickupTime: "Today, 1-3 PM",
-  //   rating: 4.6,
-  //   lat: 25.199012,
-  //   lng: 55.271234,
-  // },
-]
-
 // Interface for food items
 interface FoodItem {
-  id: number | string
+  id: string
   name: string
   vendor: string
   originalPrice: number
@@ -163,7 +69,7 @@ export default function BrowsePage() {
     const fetchFoodItems = async () => {
       try {
         setIsLoading(true)
-        const response = await fetch("../api/food-items")
+        const response = await fetch("/api/food-items") // Use absolute path
 
         if (!response.ok) {
           throw new Error("Failed to fetch food items")
@@ -171,18 +77,16 @@ export default function BrowsePage() {
 
         const data = await response.json()
 
-        // Combine mock data with API data
-        const combinedItems = [...mockFoodItems, ...data]
-        setFoodItems(combinedItems)
+        setFoodItems(data)
 
         // Extract unique cuisine types and dietary preferences
         const cuisines = new Set<string>(["All"])
         const dietary = new Set<string>()
 
-        combinedItems.forEach((item) => {
+        data.forEach((item: any) => {
           if (item.cuisine) cuisines.add(item.cuisine)
-          if (item.dietary && Array.isArray(item.dietary)) {
-            item.dietary.forEach((diet) => dietary.add(diet))
+          if (Array.isArray(item.dietary)) {
+            item.dietary.forEach((diet: string) => dietary.add(diet))
           }
         })
 
@@ -190,22 +94,10 @@ export default function BrowsePage() {
         setDietaryPreferences(Array.from(dietary))
       } catch (err) {
         console.error("Error fetching food items:", err)
-        setError("Failed to load food items. Using sample data instead.")
-        setFoodItems(mockFoodItems)
-
-        // Extract unique cuisine types and dietary preferences from mock data
-        const cuisines = new Set<string>(["All"])
-        const dietary = new Set<string>()
-
-        mockFoodItems.forEach((item) => {
-          if (item.cuisine) cuisines.add(item.cuisine)
-          if (item.dietary && Array.isArray(item.dietary)) {
-            item.dietary.forEach((diet) => dietary.add(diet))
-          }
-        })
-
-        setCuisineTypes(Array.from(cuisines))
-        setDietaryPreferences(Array.from(dietary))
+        setError("Failed to load food items.")
+        setFoodItems([])
+        setCuisineTypes(["All"])
+        setDietaryPreferences([])
       } finally {
         setIsLoading(false)
       }
@@ -566,7 +458,7 @@ export default function BrowsePage() {
         </TabsContent>
         <TabsContent value="map" className="mt-6">
           <div className="h-[600px] rounded-lg overflow-hidden border">
-            <FoodMap items={filteredItems} userLocation={userLocation} />
+            {/* Google maps */}
           </div>
         </TabsContent>
       </Tabs>

@@ -12,20 +12,6 @@ export default function Footer() {
               Reducing food waste in the UAE by connecting businesses with surplus food to environmentally conscious
               consumers.
             </p>
-            <div className="flex space-x-4">
-              <Link href="#" className="text-green-100 hover:text-white">
-                <Facebook className="h-5 w-5" />
-                <span className="sr-only">Facebook</span>
-              </Link>
-              <Link href="#" className="text-green-100 hover:text-white">
-                <Instagram className="h-5 w-5" />
-                <span className="sr-only">Instagram</span>
-              </Link>
-              <Link href="#" className="text-green-100 hover:text-white">
-                <Twitter className="h-5 w-5" />
-                <span className="sr-only">Twitter</span>
-              </Link>
-            </div>
           </div>
           <div>
             <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
@@ -61,28 +47,8 @@ export default function Footer() {
             <h3 className="text-lg font-semibold mb-4">Support</h3>
             <ul className="space-y-2">
               <li>
-                <Link href="/help" className="text-green-100 hover:text-white">
-                  Help Center
-                </Link>
-              </li>
-              <li>
-                <Link href="/faq" className="text-green-100 hover:text-white">
+                <Link href="/how-it-works" className="text-green-100 hover:text-white">
                   FAQ
-                </Link>
-              </li>
-              <li>
-                <Link href="/contact" className="text-green-100 hover:text-white">
-                  Contact Us
-                </Link>
-              </li>
-              <li>
-                <Link href="/terms" className="text-green-100 hover:text-white">
-                  Terms of Service
-                </Link>
-              </li>
-              <li>
-                <Link href="/privacy" className="text-green-100 hover:text-white">
-                  Privacy Policy
                 </Link>
               </li>
             </ul>

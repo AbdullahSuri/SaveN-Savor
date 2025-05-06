@@ -351,12 +351,12 @@ export default function FoodDetailPage() {
             </div>
           </div>
 
-          <Tabs defaultValue="reviews">
+          <Tabs defaultValue="vendor">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="reviews">Reviews</TabsTrigger>
               <TabsTrigger value="vendor">About Vendor</TabsTrigger>
             </TabsList>
-            <TabsContent value="reviews" className="mt-4">
+            {/* <TabsContent value="reviews" className="mt-4">
               <Card>
                 <CardHeader>
                   <CardTitle>Customer Reviews</CardTitle>
@@ -397,7 +397,7 @@ export default function FoodDetailPage() {
                   </Button>
                 </CardFooter>
               </Card>
-            </TabsContent>
+            </TabsContent> */}
             <TabsContent value="vendor" className="mt-4">
               <Card>
                 <CardHeader>
@@ -417,9 +417,6 @@ export default function FoodDetailPage() {
                       500+ Meals Saved
                     </Badge>
                   </div>
-                  <Button variant="outline" asChild className="mt-2">
-                    <Link href={`/vendor/${foodItem.vendorId}`}>View All Items from this Vendor</Link>
-                  </Button>
                 </CardContent>
               </Card>
             </TabsContent>

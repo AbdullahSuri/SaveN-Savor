@@ -45,29 +45,46 @@ export function CartProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("cart", JSON.stringify(cartItems))
   }, [cartItems])
 
-  const addToCart = (item: CartItem) => {
-    setCartItems((prevItems) => {
-      // Check if item already exists in cart
-      const existingItemIndex = prevItems.findIndex((cartItem) => cartItem.id === item.id)
+  const addToCart = async (item: CartItem) => {
+    // Fetch the current food item stock from database
+    const response = await fetch("/api/food-items")
+    const foodItems: { id: string | number; quantity: number }[] = await response.json()
+    const currentItem = foodItems.find((f) => f.id === item.id)
 
-      if (existingItemIndex >= 0) {
-        // Update quantity if item exists
-        const updatedItems = [...prevItems]
-        updatedItems[existingItemIndex] = {
-          ...updatedItems[existingItemIndex],
-          quantity: updatedItems[existingItemIndex].quantity + item.quantity,
+    if (currentItem) {
+      setCartItems((prevItems) => {
+        // Check if item already exists in cart
+        const existingItem = prevItems.find((cartItem) => cartItem.id === item.id)
+        const existingQty = existingItem?.quantity ?? 0
+        const totalDesiredQty = existingQty + item.quantity
+        if (totalDesiredQty > currentItem.quantity) {
+          toast({
+            title: "Quantity Exceeded",
+            description: `Only ${currentItem.quantity} available. You've requested ${totalDesiredQty}.`,
+            variant: "destructive",
+          })
+          return prevItems
         }
-        return updatedItems
-      } else {
-        // Add new item if it doesn't exist
-        return [...prevItems, item]
-      }
-    })
 
-    toast({
-      title: "Added to cart!",
-      description: `${item.quantity} x ${item.name} added to your cart`,
-    })
+        // Update quantity or add new item
+        const updatedItems = existingItem
+          ? prevItems.map((cartItem) =>
+            cartItem.id === item.id
+              ? { ...cartItem, quantity: cartItem.quantity + item.quantity }
+              : cartItem
+          )
+          : [...prevItems, item]
+
+        toast({
+          title: "Added to cart!",
+          description: `${item.quantity} x ${item.name} added to your cart`,
+        })
+
+        return updatedItems
+      })
+    } else {
+      return
+    }
   }
 
   const removeFromCart = (id: number | string) => {

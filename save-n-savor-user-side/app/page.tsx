@@ -26,9 +26,6 @@ export default function Home() {
                   Find Food Near Me <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
-              <Button asChild variant="outline" size="lg">
-                <Link href="/about">Learn More</Link>
-              </Button>
             </div>
           </div>
         </div>
@@ -270,8 +267,10 @@ export default function Home() {
                   Sign Up Now <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
-              <Button asChild variant="outline" size="lg" className="border-white text-white hover:bg-green-700">
-                <Link href="/browse">Browse Available Food</Link>
+              <Button asChild variant="outline" size="lg" className="bg-white text-green-600 hover:bg-green-50">
+                <Link href="/browse">Browse Available Food
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
               </Button>
             </div>
           </div>
