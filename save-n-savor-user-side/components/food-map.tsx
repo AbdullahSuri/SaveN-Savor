@@ -1,90 +1,57 @@
 "use client"
 
-import { useEffect, useRef } from "react"
-import { Card, CardContent } from "@/components/ui/card"
+import { useEffect, useState } from "react"
+import { GoogleMap, Marker, useJsApiLoader } from "@react-google-maps/api"
 
-interface FoodItem {
-  id: number
-  name: string
-  vendor: string
-  originalPrice: number
-  discountedPrice: number
-  image: string
-  distance: string
-  cuisine: string
-  dietary: string[]
-  pickupTime: string
-  rating: number
-  lat: number
-  lng: number
+const containerStyle = {
+  width: "100%",
+  height: "400px",
 }
 
 interface FoodMapProps {
-  items: FoodItem[]
-  userLocation: { lat: number; lng: number } | null
+  location: string // e.g., "Dubai, UAE"
 }
 
-// Declare google as a global variable
-declare global {
-  interface Window {
-    google: any
-  }
-}
+export default function FoodMap({ location }: FoodMapProps) {
+  const { isLoaded } = useJsApiLoader({
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
+  })
 
-export default function FoodMap({ items, userLocation }: FoodMapProps) {
-  const mapRef = useRef<HTMLDivElement>(null)
-  const mapInstanceRef = useRef<google.maps.Map | null>(null)
-  const markersRef = useRef<google.maps.Marker[]>([])
-  const infoWindowRef = useRef<google.maps.InfoWindow | null>(null)
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const loadGoogleMapsScript = () => {
-      console.log("In a real app, we would load Google Maps here")
-      // Create a placeholder map element
-      if (mapRef.current) {
-        mapRef.current.innerHTML = `
-          <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background-color: #f0f0f0; color: #666;">
-            <div style="text-align: center;">
-              <p>Google Maps would display here</p>
-              <p>Add your API key to enable maps</p>
-            </div>
-          </div>
-        `
+    const fetchCoordinates = async () => {
+      try {
+        const res = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(location)}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+        )
+        const data = await res.json()
+
+        if (data.status === "OK" && data.results.length > 0) {
+          const { lat, lng } = data.results[0].geometry.location
+          setCoords({ lat, lng })
+        } else {
+          throw new Error("Could not geocode location")
+        }
+      } catch (err) {
+        console.error("Geocoding failed:", err)
+        setError("Failed to load map coordinates")
       }
     }
 
-    const initializeMap = () => {
-      console.log("Map initialization would happen here with a valid API key")
-      loadGoogleMapsScript()
-    }
+    fetchCoordinates()
+  }, [location])
 
-    initializeMap()
-    return () => {
-      // Cleanup would happen here
-    }
-  }, [items, userLocation])
-
-  useEffect(() => {
-    console.log("Map markers would update here with items:", items)
-  }, [items])
+  if (!isLoaded) return <p>Loading map script...</p>
+  if (error) return <p>{error}</p>
+  if (!coords) return <p>Loading coordinates...</p>
 
   return (
-    <div className="relative h-full w-full">
-      <div ref={mapRef} className="h-full w-full" />
-      <div className="absolute bottom-4 left-4 z-10">
-        <Card className="w-auto">
-          <CardContent className="p-3">
-            <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 rounded-full bg-green-500"></div>
-              <span className="text-sm">Your Location</span>
-            </div>
-            <div className="flex items-center space-x-2 mt-1">
-              <div className="w-4 h-4 rounded-full bg-red-500"></div>
-              <span className="text-sm">Food Locations ({items.length})</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+    <GoogleMap mapContainerStyle={containerStyle} center={coords} zoom={14}>
+      <Marker position={coords} title={location} />
+    </GoogleMap>
+
+
   )
 }
