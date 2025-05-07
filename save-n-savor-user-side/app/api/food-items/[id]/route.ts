@@ -28,10 +28,6 @@ export async function GET(request: Request, { params }: { params: { id: string }
     // Calculate a random rating between 3.5 and 5.0
     const rating = (Math.random() * 1.5 + 3.5).toFixed(1)
 
-    // Generate random coordinates near Dubai (for map display)
-    const lat = 25.2 + (Math.random() * 0.1 - 0.05)
-    const lng = 55.27 + (Math.random() * 0.1 - 0.05)
-
     let imageUrl
     if (foodItem.image && foodItem.image.data) {
       // Create a data URL from the Base64 data and content type
@@ -44,6 +40,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       name: foodItem.name,
       vendor: foodItem.vendor.name,
       vendorId: foodItem.vendor.id,
+      vendorLocation: foodItem.vendor.location,
       originalPrice: foodItem.originalPrice,
       discountedPrice: foodItem.discountedPrice,
       image: imageUrl,
@@ -52,8 +49,6 @@ export async function GET(request: Request, { params }: { params: { id: string }
       dietary: foodItem.dietary || [],
       pickupTime: `Today, ${Math.floor(Math.random() * 12) + 1}-${Math.floor(Math.random() * 12) + 1} PM`,
       rating: Number.parseFloat(rating),
-      lat: lat,
-      lng: lng,
       description: foodItem.description,
       expiryDate: foodItem.expiryDate,
       quantity: foodItem.quantity,
