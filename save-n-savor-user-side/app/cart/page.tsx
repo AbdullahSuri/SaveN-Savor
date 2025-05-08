@@ -9,7 +9,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from "@/components/ui/separator"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { toast } from "@/components/ui/use-toast"
 import { useCart } from "@/context/cart-context"
@@ -96,8 +95,8 @@ export default function CartPage() {
           title: "Select a Card",
           description: "Please choose a saved card to proceed.",
           variant: "destructive",
-        });
-        return;
+        })
+        return
       }
     }
 
@@ -160,6 +159,11 @@ export default function CartPage() {
       }
 
       if (!response.ok) {
+        // Check if there are unavailable items
+        if (data.unavailableItems && data.unavailableItems.length > 0) {
+          const itemNames = data.unavailableItems.map((item) => `${item.name}: ${item.reason}`).join("\n")
+          throw new Error(`Some items are unavailable:\n${itemNames}`)
+        }
         throw new Error(data.error || "Failed to place order")
       }
 
@@ -328,22 +332,35 @@ export default function CartPage() {
                   {paymentMethod === "credit-card" && (
                     <div className="space-y-4">
                       <h3 className="font-medium mb-2">Cards</h3>
-                      <RadioGroup value={String(selectedCardIndex)} onValueChange={(val) => setSelectedCardIndex(Number(val))}>
+                      <RadioGroup
+                        value={String(selectedCardIndex)}
+                        onValueChange={(val) => setSelectedCardIndex(Number(val))}
+                      >
                         {(user?.paymentMethods ?? []).length > 0 ? (
-                          user.paymentMethods.map((card: { nameOnCard: string; cardNumberLast4: string; expiry: string }, idx: number) => (
-                            <div key={idx} className={`border rounded-md p-3 flex items-center space-x-3 ${selectedCardIndex === idx ? "ring-2 ring-green-600" : ""}`}>
-                              <RadioGroupItem value={String(idx)} id={`card-${idx}`} />
-                              <Label htmlFor={`card-${idx}`} className="flex flex-col gap-1">
-                                <span className="font-medium">{card.nameOnCard} •••• {card.cardNumberLast4}</span>
-                                <span className="text-sm text-gray-500">Expires {card.expiry}</span>
-                              </Label>
-                            </div>
-                          ))
+                          user.paymentMethods.map(
+                            (card: { nameOnCard: string; cardNumberLast4: string; expiry: string }, idx: number) => (
+                              <div
+                                key={idx}
+                                className={`border rounded-md p-3 flex items-center space-x-3 ${selectedCardIndex === idx ? "ring-2 ring-green-600" : ""}`}
+                              >
+                                <RadioGroupItem value={String(idx)} id={`card-${idx}`} />
+                                <Label htmlFor={`card-${idx}`} className="flex flex-col gap-1">
+                                  <span className="font-medium">
+                                    {card.nameOnCard} •••• {card.cardNumberLast4}
+                                  </span>
+                                  <span className="text-sm text-gray-500">Expires {card.expiry}</span>
+                                </Label>
+                              </div>
+                            ),
+                          )
                         ) : (
                           <p className="text-sm text-gray-500">No saved cards found.</p>
                         )}
                       </RadioGroup>
-                      <Button variant="outline" className="w-full" onClick={() => router.push("/profile")}> <PlusCircle className="h-4 w-4 mr-2" /> Add New Card</Button>
+                      <Button variant="outline" className="w-full" onClick={() => router.push("/profile")}>
+                        {" "}
+                        <PlusCircle className="h-4 w-4 mr-2" /> Add New Card
+                      </Button>
                     </div>
                   )}
                 </CardContent>

@@ -118,6 +118,11 @@ interface FoodItem {
     saved: number
     total: number
   }
+  pickupTimeSlots?: {
+    day: string
+    startTime: string
+    endTime: string
+  }[]
 }
 
 export default function FoodDetailPage() {
@@ -181,6 +186,19 @@ export default function FoodDetailPage() {
       return
     }
 
+    // Get the selected time slot
+    let pickupTimeText = ""
+    if (foodItem.pickupTimeSlots && foodItem.pickupTimeSlots.length > 0) {
+      const slotIndex = Number.parseInt(selectedPickupTime, 10)
+      if (!isNaN(slotIndex) && slotIndex >= 0 && slotIndex < foodItem.pickupTimeSlots.length) {
+        const slot = foodItem.pickupTimeSlots[slotIndex]
+        pickupTimeText = `${slot.day}, ${slot.startTime} - ${slot.endTime}`
+      }
+    } else {
+      // Fallback for legacy format
+      pickupTimeText = selectedPickupTime === "5-6pm" ? "Today, 5:00 PM - 6:00 PM" : "Today, 6:00 PM - 7:00 PM"
+    }
+
     // Add to cart
     addToCart({
       id: foodItem.id,
@@ -189,7 +207,7 @@ export default function FoodDetailPage() {
       price: foodItem.discountedPrice,
       quantity: quantity,
       image: foodItem.image,
-      pickupTime: selectedPickupTime === "5-6pm" ? "5:00 PM - 6:00 PM" : "6:00 PM - 7:00 PM",
+      pickupTime: pickupTimeText,
     })
   }
 
@@ -461,14 +479,28 @@ export default function FoodDetailPage() {
                   <h3 className="font-medium mb-2">Select Pickup Time</h3>
                   <RadioGroup value={selectedPickupTime} onValueChange={setSelectedPickupTime}>
                     <div className="grid grid-cols-1 gap-2">
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="5-6pm" id="5-6pm" />
-                        <Label htmlFor="5-6pm">5:00 PM - 6:00 PM</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="6-7pm" id="6-7pm" />
-                        <Label htmlFor="6-7pm">6:00 PM - 7:00 PM</Label>
-                      </div>
+                      {foodItem.pickupTimeSlots && foodItem.pickupTimeSlots.length > 0 ? (
+                        foodItem.pickupTimeSlots.map((slot, index) => (
+                          <div key={index} className="flex items-center space-x-2">
+                            <RadioGroupItem value={`${index}`} id={`time-slot-${index}`} />
+                            <Label htmlFor={`time-slot-${index}`}>
+                              {slot.day}, {slot.startTime} - {slot.endTime}
+                            </Label>
+                          </div>
+                        ))
+                      ) : (
+                        // Fallback to default time slots if none are provided
+                        <>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="5-6pm" id="5-6pm" />
+                            <Label htmlFor="5-6pm">Today, 5:00 PM - 6:00 PM</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="6-7pm" id="6-7pm" />
+                            <Label htmlFor="6-7pm">Today, 6:00 PM - 7:00 PM</Label>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </RadioGroup>
                 </div>

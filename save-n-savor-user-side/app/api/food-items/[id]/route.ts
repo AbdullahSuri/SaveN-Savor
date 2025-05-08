@@ -8,10 +8,10 @@ const FoodItem = mongoose.models.FoodItem
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
     const url = new URL(request.url)
-    const id = url.pathname.split('/').pop() // extract the [id] from the path
+    const id = url.pathname.split("/").pop() // extract the [id] from the path
 
     if (!id || (!mongoose.Types.ObjectId.isValid(id) && id.length !== 24)) {
-      return new Response(JSON.stringify({ error: 'Invalid ID' }), { status: 400 })
+      return new Response(JSON.stringify({ error: "Invalid ID" }), { status: 400 })
     }
 
     await dbConnect()
@@ -55,8 +55,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
       ingredients: foodItem.ingredients,
       emissions: foodItem.emissions,
       address: foodItem.vendor.location,
-      reviews: [,
-      ],
+      pickupTimeSlots: foodItem.pickupTimeSlots || [
+        { day: "Today", startTime: "5:00 PM", endTime: "6:00 PM" },
+        { day: "Today", startTime: "6:00 PM", endTime: "7:00 PM" },
+        { day: "Tomorrow", startTime: "10:00 AM", endTime: "11:00 AM" },
+      ], // Add pickup time slots with fallback and day information
+      reviews: [,],
     }
 
     return NextResponse.json(transformedItem)
