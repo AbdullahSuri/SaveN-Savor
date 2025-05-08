@@ -19,7 +19,7 @@ import { api, FoodItem } from '@/services/api'
 import { toast } from "react-toastify"
 
 interface InventoryListProps {
-  refreshTrigger?: number; // Add this prop to trigger refresh
+  refreshTrigger?: number; // Prop to trigger refresh
 }
 
 export function InventoryList({ refreshTrigger }: InventoryListProps) {
@@ -51,7 +51,7 @@ export function InventoryList({ refreshTrigger }: InventoryListProps) {
     if (selectedItems.length === inventoryItems.length) {
       setSelectedItems([])
     } else {
-      setSelectedItems(inventoryItems.map((item) => item._id!))
+      setSelectedItems(inventoryItems.map((item) => item._id))
     }
   }
 
@@ -141,6 +141,7 @@ export function InventoryList({ refreshTrigger }: InventoryListProps) {
             <TableHead className="hidden md:table-cell">Dietary</TableHead>
             <TableHead className="hidden lg:table-cell">CO2 Saved</TableHead>
             <TableHead className="text-right">Actions</TableHead>
+            <TableHead className="hidden lg:table-cell">Pickup Slots</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -164,8 +165,8 @@ export function InventoryList({ refreshTrigger }: InventoryListProps) {
               <TableRow key={item._id}>
                 <TableCell>
                   <Checkbox
-                    checked={selectedItems.includes(item._id!)}
-                    onCheckedChange={() => toggleSelectItem(item._id!)}
+                    checked={selectedItems.includes(item._id)}
+                    onCheckedChange={() => toggleSelectItem(item._id)}
                     aria-label={`Select ${item.name}`}
                   />
                 </TableCell>
@@ -188,8 +189,12 @@ export function InventoryList({ refreshTrigger }: InventoryListProps) {
                 <TableCell className="hidden md:table-cell">{item.category}</TableCell>
                 <TableCell>
                   <div className="flex flex-col">
-                    <span>${item.discountedPrice.toFixed(2)}</span>
-                    <span className="text-xs text-muted-foreground line-through">${item.originalPrice.toFixed(2)}</span>
+                    <span>${item.discountedPrice !== undefined && item.discountedPrice !== null ? 
+                      Number(item.discountedPrice).toFixed(2) : '0.00'}</span>
+                    <span className="text-xs text-muted-foreground line-through">
+                      ${item.originalPrice !== undefined && item.originalPrice !== null ? 
+                      Number(item.originalPrice).toFixed(2) : '0.00'}
+                    </span>
                   </div>
                 </TableCell>
                 <TableCell className="hidden md:table-cell">{item.quantity}</TableCell>
@@ -229,13 +234,24 @@ export function InventoryList({ refreshTrigger }: InventoryListProps) {
                           Edit
                         </DropdownMenuItem>
                       </EditFoodItemDialog>
-                      <DropdownMenuItem onClick={() => handleDelete(item._id!)}>
+                      <DropdownMenuItem onClick={() => handleDelete(item._id)}>
                         <Trash className="mr-2 h-4 w-4" />
                         Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
+                <TableCell className="hidden lg:table-cell">
+  {item.pickupTimeSlots && item.pickupTimeSlots.length > 0 ? (
+    <div className="flex flex-wrap gap-1">
+      <Badge variant="outline" className="whitespace-nowrap">
+        {item.pickupTimeSlots.length} slots available
+      </Badge>
+    </div>
+  ) : (
+    <span className="text-muted-foreground text-xs">No pickup slots</span>
+  )}
+</TableCell>
               </TableRow>
             ))
           )}

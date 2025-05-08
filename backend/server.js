@@ -2,11 +2,19 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const multer = require('multer');
-const http = require('http'); // Using built-in http for internal API calls
 require('dotenv').config();
 
 const app = express();
+// Import models instead of defining them in server.js
+const FoodItem = require('./models/foodItem');
+const User = require('./models/user');
+
 const emissionsRoutes = require('./routes/emissions');
+
+
+// Add this near the top of your server.js after importing models
+console.log('FoodItem schema structure:', Object.keys(FoodItem.schema.paths));
+console.log('Emissions field in schema:', FoodItem.schema.paths.emissions);
 
 // Configure multer for memory storage
 const storage = multer.memoryStorage();
@@ -21,59 +29,6 @@ const upload = multer({
     }
   }
 });
-
-// Helper function to calculate emissions internally
-function calculateEmissions(dishName, ingredients) {
-  return new Promise((resolve, reject) => {
-    // Create the request payload
-    const data = JSON.stringify({
-      dishName: dishName,
-      ingredients: ingredients
-    });
-    
-    // Set up request options for internal API call
-    const port = process.env.PORT || 5000;
-    const options = {
-      hostname: 'localhost',
-      port: port,
-      path: '/api/emissions/calculate',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(data)
-      }
-    };
-    
-    // Make internal HTTP request to the emissions endpoint
-    const req = http.request(options, (res) => {
-      let responseBody = '';
-      
-      res.on('data', (chunk) => {
-        responseBody += chunk;
-      });
-      
-      res.on('end', () => {
-        try {
-          // Parse the JSON response
-          const parsedResponse = JSON.parse(responseBody);
-          resolve(parsedResponse);
-        } catch (error) {
-          console.error('Error parsing emissions response:', error);
-          reject(error);
-        }
-      });
-    });
-    
-    req.on('error', (error) => {
-      console.error('Error calling emissions endpoint:', error);
-      reject(error);
-    });
-    
-    // Send the request
-    req.write(data);
-    req.end();
-  });
-}
 
 // Middleware
 app.use(cors({
@@ -91,112 +46,6 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/savens
 mongoose.connect(MONGODB_URI)
   .then(() => console.log('Connected to MongoDB'))
   .catch(err => console.error('MongoDB connection error:', err));
-
-// Food Item Schema with Base64 image storage
-const foodItemSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  category: { type: String, required: true },
-  originalPrice: { type: Number, required: true },
-  discountedPrice: { type: Number, required: true },
-  quantity: { type: Number, required: true },
-  expiryDate: { type: String, required: true },
-  description: { type: String, default: '' },
-  dietary: [{ type: String }],
-  vendor: {
-    name: { type: String, required: true },
-    id: { type: String, required: true },
-    location: { type: String, required: true }
-  },
-  ingredients: [{ type: String }],
-  emissions: {
-    saved: { type: Number, default: 0 },
-    total: { type: Number, default: 0 }
-  },
-  image: { 
-    data: { type: String, default: '' }, // Base64 string
-    contentType: { type: String, default: '' } // MIME type
-  },
-  createdAt: { type: Date, default: Date.now }
-}, { 
-  timestamps: true
-});
-
-const FoodItem = mongoose.model('FoodItem', foodItemSchema);
-
-// User Schema with orders
-const addressSchema = new mongoose.Schema(
-  {
-    line1: String,
-    city: String,
-    state: String,
-    zip: String,
-  },
-  { _id: false },
-);
-
-const paymentSchema = new mongoose.Schema(
-  {
-    cardNumberLast4: String,
-    expiry: String,
-    nameOnCard: String,
-  },
-  { _id: false },
-);
-
-// Order item schema
-const orderItemSchema = new mongoose.Schema(
-  {
-    foodItemId: { type: mongoose.Schema.Types.ObjectId, ref: "FoodItem" },
-    name: { type: String, required: true },
-    vendor: { type: String, required: true },
-    price: { type: Number, required: true },
-    quantity: { type: Number, required: true },
-    image: { type: String },
-  },
-  { _id: false },
-);
-
-// Order schema
-const orderSchema = new mongoose.Schema(
-  {
-    orderId: { type: String, required: true },
-    date: { type: Date, default: Date.now },
-    items: [orderItemSchema],
-    subtotal: { type: Number, required: true },
-    serviceFee: { type: Number, default: 2.0 },
-    total: { type: Number, required: true },
-    status: {
-      type: String,
-      enum: ["pending", "confirmed", "ready for pickup", "completed", "cancelled"],
-      default: "pending",
-    },
-    pickupAddress: { type: String, required: true },
-    pickupTime: { type: String, required: true },
-    paymentMethod: { type: String },
-    impact: {
-      foodSaved: { type: Number, default: 0 }, // in kg
-      co2Saved: { type: Number, default: 0 }, // in kg
-    },
-  },
-  { timestamps: true },
-);
-
-const userSchema = new mongoose.Schema(
-  {
-    name: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
-    addresses: [addressSchema],
-    paymentMethods: [paymentSchema],
-    orders: {
-      type: [orderSchema],
-      default: [],
-    },
-  },
-  { timestamps: true },
-);
-
-const User = mongoose.model('User', userSchema);
 
 // Add a debugging middleware to log all requests
 app.use((req, res, next) => {
@@ -245,7 +94,10 @@ app.get('/api/food-items/:id/image', async (req, res) => {
   }
 });
 
-// POST new food item with image upload
+// POST new food item with image upload and enhanced emissions calculation
+// In server.js - POST new food item route
+// POST new food item with image upload and enhanced emissions calculation
+// POST /api/food-items
 app.post('/api/food-items', upload.single('image'), async (req, res) => {
   try {
     let itemData = {};
@@ -253,17 +105,20 @@ app.post('/api/food-items', upload.single('image'), async (req, res) => {
     // Check if we have form data or JSON
     if (req.file || req.body.name) {
       // Parse form data
+      console.log("Received form data:", req.body); // Debug
+      
       itemData = {
         name: req.body.name,
         category: req.body.category,
-        originalPrice: parseFloat(req.body.originalPrice),
-        discountedPrice: parseFloat(req.body.discountedPrice),
-        quantity: parseInt(req.body.quantity),
+        originalPrice: parseFloat(req.body.originalPrice || "0"),
+        discountedPrice: parseFloat(req.body.discountedPrice || "0"),
+        quantity: parseInt(req.body.quantity || "0"),
         expiryDate: req.body.expiryDate,
         description: req.body.description || '',
         dietary: req.body.dietary ? JSON.parse(req.body.dietary) : [],
         vendor: req.body.vendor ? JSON.parse(req.body.vendor) : {},
-        ingredients: req.body.ingredients ? JSON.parse(req.body.ingredients) : []
+        ingredients: req.body.ingredients ? JSON.parse(req.body.ingredients) : [],
+        pickupTimeSlots: req.body.pickupTimeSlots ? JSON.parse(req.body.pickupTimeSlots) : [] // Add this line
       };
       
       // Handle image upload if present
@@ -278,23 +133,40 @@ app.post('/api/food-items', upload.single('image'), async (req, res) => {
       itemData = req.body;
     }
     
-    // Calculate emissions based on ingredients
+    // Calculate emissions based on ingredients using the emissions API
     try {
       console.log('Calculating emissions for:', itemData.name);
-      const emissionsData = await calculateEmissions(itemData.name, itemData.ingredients);
-      console.log('Emissions calculation result:', emissionsData);
-      itemData.emissions = emissionsData;
+      
+      // Make a direct request to the emissions calculation module
+      const emissionsRoutes = require('./routes/emissions');
+      
+      // Create the request data
+      const emissionsData = await emissionsRoutes.calculateEmissions(
+        itemData.name, 
+        itemData.ingredients,
+        itemData.quantity || 1, // Use item quantity instead of hard-coded 1
+        'detailed' // Use detailed calculation
+      );
+      
+      // Use the result
+      itemData.emissions = {
+        total: emissionsData.total,
+        saved: emissionsData.saved
+      };
+      
+      console.log('Emissions calculation result:', itemData.emissions);
     } catch (emissionsError) {
       console.error('Error calculating emissions:', emissionsError);
       // Fallback to simple estimation
       itemData.emissions = {
-        total: itemData.ingredients.length * 0.5, // Simple estimation: 0.5kg CO2 per ingredient
+        total: itemData.ingredients.length * 0.5, // Simple estimation
         saved: itemData.ingredients.length * 0.35, // 70% of total
       };
       console.log('Using fallback emissions:', itemData.emissions);
     }
     
-    console.log('Saving food item with emissions:', itemData.emissions);
+    console.log('Final item data to save:', itemData);
+    
     const foodItem = new FoodItem(itemData);
     const savedItem = await foodItem.save();
     console.log('Saved food item:', savedItem._id);
@@ -305,7 +177,7 @@ app.post('/api/food-items', upload.single('image'), async (req, res) => {
   }
 });
 
-// PUT (update) food item
+// PUT /api/food-items/:id
 app.put('/api/food-items/:id', upload.single('image'), async (req, res) => {
   try {
     let updateData = {};
@@ -323,7 +195,8 @@ app.put('/api/food-items/:id', upload.single('image'), async (req, res) => {
         description: req.body.description,
         dietary: req.body.dietary ? JSON.parse(req.body.dietary) : undefined,
         vendor: req.body.vendor ? JSON.parse(req.body.vendor) : undefined,
-        ingredients: req.body.ingredients ? JSON.parse(req.body.ingredients) : undefined
+        ingredients: req.body.ingredients ? JSON.parse(req.body.ingredients) : undefined,
+        pickupTimeSlots: req.body.pickupTimeSlots ? JSON.parse(req.body.pickupTimeSlots) : undefined // Add this line
       };
       
       // Remove undefined values
@@ -351,17 +224,27 @@ app.put('/api/food-items/:id', upload.single('image'), async (req, res) => {
         const dishName = updateData.name || (await FoodItem.findById(req.params.id)).name || 'Food Item';
         console.log('Recalculating emissions for:', dishName);
         
-        const emissionsData = await calculateEmissions(dishName, updateData.ingredients);
-        console.log('Updated emissions calculation:', emissionsData);
-        updateData.emissions = emissionsData;
+        // Make a direct request to the emissions calculation module
+        const emissionsRoutes = require('./routes/emissions');
+        
+        // Create the request data
+        const emissionsData = await emissionsRoutes.calculateEmissions(
+          dishName, 
+          updateData.ingredients,
+          updateData.quantity || 1, // Use item quantity instead of hard-coded 1
+          'detailed' // Use detailed calculation
+        );
+        
+        // Use the result
+        updateData.emissions = {
+          total: emissionsData.total,
+          saved: emissionsData.saved
+        };
+        
+        console.log('Updated emissions calculation:', updateData.emissions);
       } catch (emissionsError) {
         console.error('Error recalculating emissions:', emissionsError);
-        // Fallback to simple estimation
-        updateData.emissions = {
-          total: updateData.ingredients.length * 0.5,
-          saved: updateData.ingredients.length * 0.35
-        };
-        console.log('Using fallback emissions:', updateData.emissions);
+        // Don't update emissions if calculation fails
       }
     }
     
@@ -636,6 +519,23 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ message: 'Something went wrong!' });
 });
+
+const calculateEmissions = async (dishName, ingredients, quantity = 1, detail_level = 'standard') => {
+  try {
+    // Use the function exported by the emissions module
+    return await emissionsRoutes.calculateEmissions(dishName, ingredients, quantity, detail_level);
+  } catch (error) {
+    console.error('Error in emissions calculation:', error);
+    // Return fallback values
+    return {
+      total: ingredients.length * 0.5,
+      saved: ingredients.length * 0.35
+    };
+  }
+};
+
+// Export the calculation function for internal use
+module.exports.calculateEmissions = calculateEmissions;
 
 // Start server
 const PORT = process.env.PORT || 5000;

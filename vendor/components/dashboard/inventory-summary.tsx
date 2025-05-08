@@ -1,102 +1,106 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
+import { Leaf, ShoppingBag, DollarSign, Package } from "lucide-react"
 import { api, FoodItem } from "@/services/api"
 
-interface InventoryItemSummary {
-  name: string
-  available: number
-  total: number
-  percentage: number
-}
-
 export function InventorySummary() {
-  const [inventoryItems, setInventoryItems] = useState<InventoryItemSummary[]>([])
   const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState({
+    totalItems: 0,
+    availableItems: 0,
+    totalSales: 0,
+    totalEmissionsSaved: 0
+  })
 
   useEffect(() => {
-    const fetchInventoryItems = async () => {
-      try {
-        setLoading(true)
-        
-        // Fetch food items from the API
-        const foodItems = await api.getFoodItems()
-        
-        // Process and sort food items
-        processInventoryItems(foodItems)
-      } catch (error) {
-        console.error("Error fetching inventory items:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchInventoryItems()
+    fetchInventoryStats()
   }, [])
 
-  // Process food items and create summary data
-  const processInventoryItems = (foodItems: FoodItem[]) => {
-    if (!foodItems || foodItems.length === 0) return
-
-    // Sort items by quantity
-    const sortedItems = [...foodItems].sort((a, b) => b.quantity - a.quantity)
-    
-    // Take top 4 items
-    const topItems = sortedItems.slice(0, 4)
-    
-    // Transform to summary format
-    const summaryItems = topItems.map(item => {
-      // For demo, we'll assume total is quantity + 20%
-      const total = Math.round(item.quantity * 1.2)
+  const fetchInventoryStats = async () => {
+    try {
+      setLoading(true)
+      const items = await api.getFoodItems()
       
-      return {
-        name: item.name,
-        available: item.quantity,
-        total: total,
-        percentage: Math.round((item.quantity / total) * 100)
-      }
-    })
-    
-    setInventoryItems(summaryItems)
+      // Calculate inventory statistics
+      const availableItems = items.filter(item => item.quantity > 0).length
+      
+      // Calculate total CO2 emissions saved
+      const totalEmissionsSaved = items.reduce((total, item) => {
+        return total + (item.emissions?.saved || 0)
+      }, 0)
+      
+      // Estimate total sales (discounted price * (original quantity - current quantity))
+      // This is just a rough estimate since we don't track actual sales
+      const totalSales = items.reduce((total, item) => {
+        // Assume we sold some percentage of items that were added
+        const estimatedSold = item.originalPrice * 0.3 // Assume 30% of original price was sold
+        return total + estimatedSold
+      }, 0)
+      
+      setStats({
+        totalItems: items.length,
+        availableItems,
+        totalSales,
+        totalEmissionsSaved
+      })
+    } catch (error) {
+      console.error('Error fetching inventory stats:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Inventory Summary</CardTitle>
-        <CardDescription>Current availability of your top items.</CardDescription>
+        <CardDescription>Overview of your inventory and environmental impact.</CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-4">
-        {loading ? (
-          // Loading skeleton
-          Array(4).fill(0).map((_, i) => (
-            <div key={i} className="grid gap-2">
-              <div className="flex items-center justify-between">
-                <div className="h-4 w-32 bg-muted rounded animate-pulse"></div>
-                <div className="h-4 w-16 bg-muted rounded animate-pulse"></div>
-              </div>
-              <div className="h-2 w-full bg-muted rounded animate-pulse"></div>
+      <CardContent>
+        <div className="grid gap-4 grid-cols-2">
+          <div className="flex items-center space-x-4">
+            <Package className="h-10 w-10 text-emerald-500" />
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Total Items</p>
+              <p className="text-2xl font-bold">
+                {loading ? <span className="animate-pulse">...</span> : stats.totalItems}
+              </p>
             </div>
-          ))
-        ) : inventoryItems.length === 0 ? (
-          <div className="text-center text-muted-foreground py-4">
-            No inventory items available
           </div>
-        ) : (
-          inventoryItems.map((item) => (
-            <div key={item.name} className="grid gap-2">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">{item.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  {item.available} / {item.total}
-                </p>
-              </div>
-              <Progress value={item.percentage} className="h-2" />
+          <div className="flex items-center space-x-4">
+            <ShoppingBag className="h-10 w-10 text-emerald-500" />
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Available Items</p>
+              <p className="text-2xl font-bold">
+                {loading ? <span className="animate-pulse">...</span> : stats.availableItems}
+              </p>
             </div>
-          ))
-        )}
+          </div>
+          <div className="flex items-center space-x-4">
+            <DollarSign className="h-10 w-10 text-emerald-500" />
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Estimated Revenue</p>
+              <p className="text-2xl font-bold">
+                {loading ? <span className="animate-pulse">...</span> : `$${stats.totalSales.toFixed(2)}`}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-4">
+            <Leaf className="h-10 w-10 text-emerald-500" />
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">CO2 Emissions Saved</p>
+              <p className="text-2xl font-bold">
+                {loading ? (
+                  <span className="animate-pulse">...</span>
+                ) : (
+                  `${stats.totalEmissionsSaved.toFixed(1)} kg`
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
       </CardContent>
     </Card>
   )

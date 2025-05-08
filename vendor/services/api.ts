@@ -1,6 +1,5 @@
 // services/api.ts
 import axios from 'axios';
-
 // Define API URL
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -8,6 +7,15 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const VENDOR_ID = 'Spice Garden';
 
 // Food Item types
+export interface TimeSlot {
+  day: string;
+  startTime: string;
+  endTime: string;
+  maxOrders: number;
+  currentOrders: number;
+  isActive: boolean;
+}
+
 export interface FoodItem {
   _id: string;
   name: string;
@@ -24,6 +32,7 @@ export interface FoodItem {
     location: string;
   };
   ingredients: string[];
+  pickupTimeSlots: TimeSlot[]; // Add this line
   emissions?: {
     total: number;
     saved: number;
@@ -98,6 +107,7 @@ export const api = {
   getFoodItems: async (): Promise<FoodItem[]> => {
     try {
       const response = await apiClient.get('/food-items');
+      console.log("API response data:", response.data);
       return response.data;
     } catch (error) {
       console.error('Error fetching food items:', error);
@@ -122,13 +132,14 @@ export const api = {
   createFoodItem: async (
     foodItem: Omit<FoodItem, '_id' | 'emissions'>, 
     ingredients: string[],
+    timeSlots: TimeSlot[],
     imageFile?: File
   ): Promise<FoodItem> => {
     try {
       // Create form data for multipart upload (if image is provided)
       const formData = new FormData();
       
-      // Add food item data
+      // Make sure ALL required fields are added
       formData.append('name', foodItem.name);
       formData.append('category', foodItem.category);
       formData.append('originalPrice', foodItem.originalPrice.toString());
@@ -136,14 +147,17 @@ export const api = {
       formData.append('quantity', foodItem.quantity.toString());
       formData.append('expiryDate', foodItem.expiryDate);
       formData.append('description', foodItem.description || '');
-      formData.append('dietary', JSON.stringify(foodItem.dietary));
+      formData.append('dietary', JSON.stringify(foodItem.dietary || []));
       formData.append('vendor', JSON.stringify(foodItem.vendor));
       formData.append('ingredients', JSON.stringify(ingredients));
+      formData.append('pickupTimeSlots', JSON.stringify(timeSlots)); // Add this line
       
       // Add image if provided
       if (imageFile) {
         formData.append('image', imageFile);
       }
+      
+      console.log('Sending form data:', Object.fromEntries(formData.entries())); // Debug
       
       const response = await apiClient.post('/food-items', formData, {
         headers: {
@@ -157,10 +171,13 @@ export const api = {
       throw error;
     }
   },
+  
 
   updateFoodItem: async (
     id: string, 
     updateData: Partial<FoodItem>,
+    ingredients: string[],
+    timeSlots: TimeSlot[],
     imageFile?: File
   ): Promise<FoodItem> => {
     try {
@@ -177,7 +194,12 @@ export const api = {
       if (updateData.description) formData.append('description', updateData.description);
       if (updateData.dietary) formData.append('dietary', JSON.stringify(updateData.dietary));
       if (updateData.vendor) formData.append('vendor', JSON.stringify(updateData.vendor));
-      if (updateData.ingredients) formData.append('ingredients', JSON.stringify(updateData.ingredients));
+      
+      // Always include ingredients for emissions calculation
+      formData.append('ingredients', JSON.stringify(ingredients));
+      
+      // Always include time slots
+      formData.append('pickupTimeSlots', JSON.stringify(timeSlots));
       
       // Add image if provided
       if (imageFile) {
@@ -196,6 +218,7 @@ export const api = {
       throw error;
     }
   },
+  
 
   deleteFoodItem: async (id: string): Promise<void> => {
     try {
@@ -203,6 +226,35 @@ export const api = {
     } catch (error) {
       console.error(`Error deleting food item ${id}:`, error);
       throw error;
+    }
+  },
+
+  // Emissions calculation endpoint
+  calculateEmissions: async (
+    dishName: string,
+    ingredients: string[],
+    quantity: number = 1,
+    detailLevel: 'basic' | 'standard' | 'detailed' = 'standard'
+  ): Promise<{total: number, saved: number}> => {
+    try {
+      console.log(`Calculating emissions for: ${dishName} with ${ingredients.length} ingredients`);
+      
+      // Make sure this path matches what your server expects
+      const response = await apiClient.post('/emissions/calculate', {
+        dishName,
+        ingredients,
+        quantity,
+        detail_level: detailLevel
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error calculating emissions:', error);
+      // Fallback values
+      return {
+        total: ingredients.length * 0.5,
+        saved: ingredients.length * 0.35
+      };
     }
   },
 
