@@ -4,28 +4,17 @@ import User from "@/models/user"
 import mongoose from "mongoose"
 
 export async function GET(
-    request: Request,
-    { params }: { params: { id: string } }
-  ) {
-    try {
-      const orderId = params.id;                     // ← get it here
-      const url     = new URL(request.url);
-      const userId  = url.searchParams.get("userId");
-      if (!userId) {
-        return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-      }
-// export async function GET(request: Request, { params }: { params: { orderId: string } }) {
-//   try {
-//     const orderId = params.orderId
-//     const url = new URL(request.url)
-//     const userId = url.searchParams.get("userId")
-
-//     console.log("Fetching order:", orderId, "for user:", userId)
-
-//     if (!userId) {
-//       console.error("Missing userId parameter")
-//       return NextResponse.json({ error: "Missing userId parameter" }, { status: 400 })
-//     }
+  request: Request,
+  context: { params: { id: string } }
+) {
+  try {
+    const contextParams = await context.params
+    const orderId = contextParams.id
+    const url = new URL(request.url);
+    const userId = url.searchParams.get("userId");
+    if (!userId) {
+      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+    }
 
     // Validate userId is a valid ObjectId
     if (!mongoose.Types.ObjectId.isValid(userId)) {
@@ -36,6 +25,7 @@ export async function GET(
     await dbConnect()
     console.log("Connected to database")
 
+    // get user
     const user = await User.findById(userId)
     if (!user) {
       console.error("User not found:", userId)
@@ -51,10 +41,12 @@ export async function GET(
 
     console.log(
       "User orders:",
-      user.orders.map((o) => o.orderId),
+      user.orders.map((o: { orderId: string }) => o.orderId)
     )
 
-    const order = user.orders.find((order) => order.orderId === orderId)
+    const order = user.orders.find(
+      (order: { orderId: string }) => order.orderId === orderId
+    )
     if (!order) {
       console.error("Order not found:", orderId)
       return NextResponse.json({ error: "Order not found" }, { status: 404 })

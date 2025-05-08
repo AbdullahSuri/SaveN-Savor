@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label"
 import { toast } from "@/components/ui/use-toast"
 import { useCart } from "@/context/cart-context"
 import { Skeleton } from "@/components/ui/skeleton"
+import FoodMap from "@/components/food-map"
 
 // Mock data for food item details (fallback if API fails)
 const mockFoodItems = [
@@ -92,6 +93,7 @@ interface FoodItem {
   name: string
   vendor: string
   vendorId: string
+  vendorLocation: string
   originalPrice: number
   discountedPrice: number
   image: string
@@ -102,8 +104,6 @@ interface FoodItem {
   rating: number
   description: string
   address: string
-  lat: number
-  lng: number
   reviews: {
     id: number
     user: string
@@ -139,15 +139,6 @@ export default function FoodDetailPage() {
     const fetchFoodItem = async () => {
       try {
         setIsLoading(true)
-
-        // First check if the item is in our mock data
-        const mockItem = mockFoodItems.find((item) => item.id === id)
-
-        if (mockItem) {
-          setFoodItem(mockItem)
-          setIsLoading(false)
-          return
-        }
 
         // If not in mock data, try to fetch from API
         const response = await fetch(`/api/food-items/${id}`)
@@ -339,24 +330,24 @@ export default function FoodDetailPage() {
               </div>
             )}
 
+            {/* Map */}
             <div className="mt-6">
               <h2 className="text-xl font-semibold mb-2">Pickup Location</h2>
               <p className="text-gray-600 mb-2">{foodItem.address}</p>
-              <div className="h-[200px] bg-gray-100 rounded-lg">
-                {/* Map would go here */}
-                <div className="h-full w-full flex items-center justify-center text-gray-400">
-                  Interactive map would be displayed here
+              <div className="h-[400px] overflow-hidden bg-gray-100 rounded-lg relative">
+                <div className="absolute inset-0">
+                  <FoodMap location={foodItem.vendorLocation} />
                 </div>
               </div>
             </div>
           </div>
 
-          <Tabs defaultValue="reviews">
+          <Tabs defaultValue="vendor">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="reviews">Reviews</TabsTrigger>
               <TabsTrigger value="vendor">About Vendor</TabsTrigger>
             </TabsList>
-            <TabsContent value="reviews" className="mt-4">
+            {/* <TabsContent value="reviews" className="mt-4">
               <Card>
                 <CardHeader>
                   <CardTitle>Customer Reviews</CardTitle>
@@ -397,7 +388,7 @@ export default function FoodDetailPage() {
                   </Button>
                 </CardFooter>
               </Card>
-            </TabsContent>
+            </TabsContent> */}
             <TabsContent value="vendor" className="mt-4">
               <Card>
                 <CardHeader>
@@ -417,9 +408,6 @@ export default function FoodDetailPage() {
                       500+ Meals Saved
                     </Badge>
                   </div>
-                  <Button variant="outline" asChild className="mt-2">
-                    <Link href={`/vendor/${foodItem.vendorId}`}>View All Items from this Vendor</Link>
-                  </Button>
                 </CardContent>
               </Card>
             </TabsContent>

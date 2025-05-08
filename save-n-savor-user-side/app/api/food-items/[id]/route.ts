@@ -7,11 +7,11 @@ const FoodItem = mongoose.models.FoodItem
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    const id = params.id
+    const url = new URL(request.url)
+    const id = url.pathname.split('/').pop() // extract the [id] from the path
 
-    // Check if id is a valid MongoDB ObjectId
-    if (!mongoose.Types.ObjectId.isValid(id) && id.length !== 24) {
-      return NextResponse.json({ error: "Invalid ID format" }, { status: 400 })
+    if (!id || (!mongoose.Types.ObjectId.isValid(id) && id.length !== 24)) {
+      return new Response(JSON.stringify({ error: 'Invalid ID' }), { status: 400 })
     }
 
     await dbConnect()
@@ -28,12 +28,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     // Calculate a random rating between 3.5 and 5.0
     const rating = (Math.random() * 1.5 + 3.5).toFixed(1)
 
-    // Generate random coordinates near Dubai (for map display)
-    const lat = 25.2 + (Math.random() * 0.1 - 0.05)
-    const lng = 55.27 + (Math.random() * 0.1 - 0.05)
-
-    // Handle the new image format (Base64)
-    let imageUrl = `/placeholder.svg?height=300&width=400&query=${encodeURIComponent(foodItem.name)}`
+    let imageUrl
     if (foodItem.image && foodItem.image.data) {
       // Create a data URL from the Base64 data and content type
       imageUrl = `data:${foodItem.image.contentType};base64,${foodItem.image.data}`
@@ -45,6 +40,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       name: foodItem.name,
       vendor: foodItem.vendor.name,
       vendorId: foodItem.vendor.id,
+      vendorLocation: foodItem.vendor.location,
       originalPrice: foodItem.originalPrice,
       discountedPrice: foodItem.discountedPrice,
       image: imageUrl,
@@ -53,29 +49,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
       dietary: foodItem.dietary || [],
       pickupTime: `Today, ${Math.floor(Math.random() * 12) + 1}-${Math.floor(Math.random() * 12) + 1} PM`,
       rating: Number.parseFloat(rating),
-      lat: lat,
-      lng: lng,
       description: foodItem.description,
       expiryDate: foodItem.expiryDate,
       quantity: foodItem.quantity,
       ingredients: foodItem.ingredients,
       emissions: foodItem.emissions,
-      address: foodItem.vendor.location || "Dubai, UAE",
-      reviews: [
-        {
-          id: 1,
-          user: "Ahmed M.",
-          rating: 5,
-          comment: "Excellent quality food, great value for money!",
-          date: "2 days ago",
-        },
-        {
-          id: 2,
-          user: "Sarah K.",
-          rating: 4,
-          comment: "Very fresh and tasty. Will order again.",
-          date: "1 week ago",
-        },
+      address: foodItem.vendor.location,
+      reviews: [,
       ],
     }
 
