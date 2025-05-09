@@ -13,14 +13,19 @@ SaveN'Savor is a sustainable food-sharing app that connects vendors with surplus
 
 🛠 Tech Stack
 
-- Frontend Framework: Next.js  
-- Styling: Tailwind CSS  
-- State Management: Redux / Context API (as applicable)  
-- Mobile Support: Expo (React Native)  
-- Database: MongoDB  
-- APIs & Integrations:  
-  - Stripe or PayPal (for payments)  
-  - Google Maps API (for geolocation)  
+- HTML5 – for structuring content and UI elements  
+- CSS3 – for styling the UI, layouts, and responsive design  
+- JavaScript (ES6) – core logic, interactivity, form handling, and DOM manipulation  
+- React – for building user interfaces  
+- Next.js – frontend framework  
+- Tailwind CSS – for utility-first styling  
+- Redux / Context API – for state management (as applicable)  
+- Expo (React Native) – for mobile support  
+- MongoDB – for database management  
+- API – for client-server communication  
+- Stripe or PayPal – for payment processing  
+- Google Maps API – for geolocation  
+- Jest – for testing  
 
 📁 Project Structure
 
