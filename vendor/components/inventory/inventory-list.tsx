@@ -1,3 +1,4 @@
+// components/inventory/inventory-list.tsx
 "use client"
 
 import { useState, useEffect } from "react"
@@ -13,10 +14,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Edit, MoreHorizontal, Trash, Leaf, Image as ImageIcon } from "lucide-react"
+import { Edit, MoreHorizontal, Trash, Leaf, Image as ImageIcon, AlertCircle, Plus } from "lucide-react"
 import { EditFoodItemDialog } from "@/components/inventory/edit-food-item-dialog"
 import { api, FoodItem } from '@/services/api'
 import { toast } from "react-toastify"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { CreateFoodItemDialog } from "@/components/inventory/create-food-item-dialog"
 
 interface InventoryListProps {
   refreshTrigger?: number; // Prop to trigger refresh
@@ -27,15 +30,31 @@ export function InventoryList({ refreshTrigger }: InventoryListProps) {
   const [inventoryItems, setInventoryItems] = useState<FoodItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [vendorName, setVendorName] = useState<string>('your business') // Default vendor name
 
   useEffect(() => {
     fetchItems()
+    
+    // Try to get vendor name from local storage or context
+    const storedUser = localStorage.getItem('currentUser');
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        if (user.businessName) {
+          setVendorName(user.businessName);
+        } else if (user.name) {
+          setVendorName(user.name);
+        }
+      } catch (e) {
+        console.error('Error parsing stored user data:', e);
+      }
+    }
   }, [refreshTrigger]) // Fetch when refreshTrigger changes
 
   const fetchItems = async () => {
     try {
       setLoading(true)
-      const items = await api.getFoodItems()
+      const items = await api.getFoodItems() // This now filters by vendor automatically
       setInventoryItems(items)
       setError(null)
     } catch (error) {
@@ -110,16 +129,20 @@ export function InventoryList({ refreshTrigger }: InventoryListProps) {
   return (
     <div className="rounded-md border">
       {error && (
-        <div className="p-4 bg-red-50 text-red-600 border-b">
-          {error}
-          <Button 
-            variant="link" 
-            className="ml-2 p-0 h-auto text-red-600 underline" 
-            onClick={fetchItems}
-          >
-            Retry
-          </Button>
-        </div>
+        <Alert variant="destructive" className="m-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            {error}
+            <Button 
+              variant="link" 
+              className="ml-2 p-0 h-auto text-red-600 underline" 
+              onClick={fetchItems}
+            >
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
       <Table>
         <TableHeader>
@@ -141,7 +164,6 @@ export function InventoryList({ refreshTrigger }: InventoryListProps) {
             <TableHead className="hidden md:table-cell">Dietary</TableHead>
             <TableHead className="hidden lg:table-cell">CO2 Saved</TableHead>
             <TableHead className="text-right">Actions</TableHead>
-            <TableHead className="hidden lg:table-cell">Pickup Slots</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -150,14 +172,22 @@ export function InventoryList({ refreshTrigger }: InventoryListProps) {
               <TableCell colSpan={11} className="text-center py-8">
                 <div className="flex justify-center items-center">
                   <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-emerald-500 mr-2"></div>
-                  Loading inventory items...
+                  Loading inventory items for {vendorName}...
                 </div>
               </TableCell>
             </TableRow>
           ) : inventoryItems.length === 0 ? (
             <TableRow>
               <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
-                No food items found. Click 'Add New Item' to get started.
+                <div className="flex flex-col items-center gap-4">
+                  <p>No food items found for {vendorName}.</p>
+                  <CreateFoodItemDialog onSuccess={fetchItems}>
+                    <Button className="flex items-center gap-2">
+                      <Plus className="h-4 w-4" />
+                      Add Your First Item
+                    </Button>
+                  </CreateFoodItemDialog>
+                </div>
               </TableCell>
             </TableRow>
           ) : (
@@ -189,12 +219,8 @@ export function InventoryList({ refreshTrigger }: InventoryListProps) {
                 <TableCell className="hidden md:table-cell">{item.category}</TableCell>
                 <TableCell>
                   <div className="flex flex-col">
-                    <span>${item.discountedPrice !== undefined && item.discountedPrice !== null ? 
-                      Number(item.discountedPrice).toFixed(2) : '0.00'}</span>
-                    <span className="text-xs text-muted-foreground line-through">
-                      ${item.originalPrice !== undefined && item.originalPrice !== null ? 
-                      Number(item.originalPrice).toFixed(2) : '0.00'}
-                    </span>
+                    <span>${item.discountedPrice.toFixed(2)}</span>
+                    <span className="text-xs text-muted-foreground line-through">${item.originalPrice.toFixed(2)}</span>
                   </div>
                 </TableCell>
                 <TableCell className="hidden md:table-cell">{item.quantity}</TableCell>
@@ -241,17 +267,6 @@ export function InventoryList({ refreshTrigger }: InventoryListProps) {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
-                <TableCell className="hidden lg:table-cell">
-  {item.pickupTimeSlots && item.pickupTimeSlots.length > 0 ? (
-    <div className="flex flex-wrap gap-1">
-      <Badge variant="outline" className="whitespace-nowrap">
-        {item.pickupTimeSlots.length} slots available
-      </Badge>
-    </div>
-  ) : (
-    <span className="text-muted-foreground text-xs">No pickup slots</span>
-  )}
-</TableCell>
               </TableRow>
             ))
           )}

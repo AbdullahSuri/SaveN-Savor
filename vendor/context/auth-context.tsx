@@ -1,23 +1,20 @@
-"use client"
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { authService } from "@/services/auth-service";
+import { LoginCredentials, LoginResponse } from "@/services/auth-service";
+import { toast } from "react-toastify";
 
-import React, { createContext, useContext, useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import axios from 'axios'
-
-// API base URL - should match your existing API
-const API_URL = 'http://localhost:4000/api';
-
-// Define the User type
-export type User = {
+// Define User type
+export interface User {
   id: string;
-  email: string;
   name: string;
-  businessName: string;
-  location: string;
+  email: string;
+  businessName?: string;
+  location?: string;
+  businessType?: string;
 }
 
-// Registration data type
-export type RegistrationData = {
+// Define registration data type
+export interface RegistrationData {
   name: string;
   email: string;
   password: string;
@@ -26,118 +23,76 @@ export type RegistrationData = {
   vendorType: string;
 }
 
-// Define the AuthContext type
-type AuthContextType = {
+// Define AuthContext type
+interface AuthContextProps {
   user: User | null;
+  token: string | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (data: RegistrationData) => Promise<boolean>;
-  logout: () => void;
   error: string | null;
+  login: (email: string, password: string) => Promise<boolean>;
+  logout: () => void;
+  register: (data: RegistrationData) => Promise<boolean>;
+  isAuthenticated: () => boolean;
 }
 
-// Create the auth context with a default value
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  loading: true,
-  login: async () => false,
-  register: async () => false,
-  logout: () => { },
-  error: null,
-});
+// Create the Auth Context
+const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
-// Custom hook to use the auth context
-export const useAuth = () => useContext(AuthContext);
-
-// Auth provider component
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+// Create AuthProvider component
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
 
-  // Check if the user is logged in on mount
+  // Initialize auth state
   useEffect(() => {
-    const storedUser = localStorage.getItem("currentUser");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    const init = () => {
+      try {
+        const storedUser = localStorage.getItem("currentUser");
+        const storedToken = localStorage.getItem("auth_token");
+        if (storedUser) {
+          const parsed = JSON.parse(storedUser);
+          setUser(parsed);
+          if (storedToken) setToken(storedToken);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    init();
   }, []);
 
-  // Login function
-  const login = async (email: string, password: string) => {
-    setLoading(true);
+  // Login function now accepts email & password
+  const login = async (email: string, password: string): Promise<boolean> => {
     setError(null);
-
+    setLoading(true);
     try {
-      // Call the API to login
-      const response = await axios.post(`${API_URL}/auth/login`, {
-        email,
-        password,
-      });
-
-      const data = response.data;
-
-      if (data.user) {
-        // store the current user
-        localStorage.setItem("currentUser", JSON.stringify(data.user));
-
-        // Set the user data
-        setUser({
-          id: data.user._id || data.user.id,
-          email: data.user.email,
-          name: data.user.name || data.vendorName || 'User',
-          businessName: data.user.businessName,
-          location: data.user.location,
-        });
-
+      const credentials: LoginCredentials = { email, password };
+      const response: LoginResponse = await authService.login(credentials);
+      if (response.success && response.user && response.token) {
+        setUser(response.user);
+        setToken(response.token);
+        localStorage.setItem("auth_token", response.token);
+        localStorage.setItem(
+          "currentUser",
+          JSON.stringify({ ...response.user, token: response.token })
+        );
+        toast.success("Login successful!");
         return true;
       } else {
-        setError("Invalid credentials");
+        const msg = response.error || "Login failed";
+        setError(msg);
+        toast.error(msg);
         return false;
       }
-    } catch (error: any) {
-      console.error("Login error:", error);
-      setError(error.response?.data?.message || "Invalid email or password");
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Register function
-  const register = async (data: RegistrationData) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Call the API to register
-      const response = await axios.post(`${API_URL}/auth/register`, data);
-
-      const responseData = response.data;
-
-      if (responseData.user) {
-        // Store the token
-        localStorage.setItem("currentUser", JSON.stringify(responseData.user));
-
-        // Set the user data
-        setUser({
-          id: responseData.user._id || responseData.user.id,
-          email: responseData.user.email,
-          name: responseData.user.name || data.vendorName || 'User',
-          businessName: responseData.user.businessName,
-          location: responseData.user.location,
-        });
-
-        return true;
-      } else {
-        setError("Registration failed");
-        return false;
-      }
-    } catch (error: any) {
-      console.error("Registration error:", error);
-      setError(error.response?.data?.message || "Registration failed");
+    } catch (err: any) {
+      console.error("Login error:", err);
+      const msg = err.message || "An unexpected error occurred";
+      setError(msg);
+      toast.error(msg);
       return false;
     } finally {
       setLoading(false);
@@ -146,93 +101,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Logout function
   const logout = () => {
-    localStorage.removeItem("currentUser");
+    authService.logout();
     setUser(null);
-    router.push("/login");
+    setToken(null);
+    localStorage.removeItem("currentUser");
+    localStorage.removeItem("auth_token");
+    toast.success("Logged out successfully");
   };
 
-  // // Mock login for demo purposes
-  // const mockLogin = async (email: string, password: string) => {
-  //   setLoading(true);
-  //   setError(null);
+  // Register function (unchanged)
+  const register = async (data: RegistrationData): Promise<boolean> => {
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/auth/register`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        }
+      );
+      const body = await res.json();
+      if (res.ok && body.user) {
+        // Auto-login
+        return await login(data.email, data.password);
+      } else {
+        const msg = body.message || "Registration failed";
+        setError(msg);
+        toast.error(msg);
+        return false;
+      }
+    } catch (err: any) {
+      console.error("Registration error:", err);
+      const msg = err.message || "An unexpected error occurred";
+      setError(msg);
+      toast.error(msg);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  //   try {
-  //     // For demo purposes, we'll use hardcoded credentials
-  //     if (email === "admin@spicegarden.com" && password === "password") {
-  //       // Create mock user data
-  //       const userData: User = {
-  //         id: "vendor-123",
-  //         email: "admin@spicegarden.com",
-  //         name: "Spice Garden Admin",
-  //       };
+  const isAuthenticated = () => !!token;
 
-  //       // Store a mock token
-  //       localStorage.setItem("auth_token", "mock_token_12345");
+  const contextValue: AuthContextProps = {
+    user,
+    token,
+    loading,
+    error,
+    login,
+    logout,
+    register,
+    isAuthenticated,
+  };
 
-  //       // Set the user data
-  //       setUser(userData);
+  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
+};
 
-  //       return true;
-  //     } else {
-  //       setError("Invalid email or password");
-  //       return false;
-  //     }
-  //   } catch (err) {
-  //     console.error("Login error:", err);
-  //     setError("An error occurred during login");
-  //     return false;
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-  // // Mock registration for demo purposes
-  // const mockRegister = async (data: RegistrationData) => {
-  //   setLoading(true);
-  //   setError(null);
-
-  //   try {
-  //     // For demo purposes, simulate a successful registration
-  //     // In a real app, this would validate and store the user data
-
-  //     // Create mock user data
-  //     const userData: User = {
-  //       id: "new-vendor-" + Date.now(),
-  //       email: data.email,
-  //       name: data.name,
-  //       role: "vendor",
-  //     };
-
-  //     // Store a mock token
-  //     localStorage.setItem("auth_token", "mock_register_token_" + Date.now());
-
-  //     // Set the user data
-  //     setUser(userData);
-
-  //     return true;
-  //   } catch (err) {
-  //     console.error("Registration error:", err);
-  //     setError("An error occurred during registration");
-  //     return false;
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        // Use the real login function if in production, otherwise use the mock login
-        login: process.env.NODE_ENV === 'production' ? login : login,
-        // Use the real register function if in production, otherwise use the mock register 
-        register: process.env.NODE_ENV === 'production' ? register : register,
-        logout,
-        error
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
-}
+// Custom hook
+export const useAuth = (): AuthContextProps => {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error("useAuth must be used within AuthProvider");
+  return context;
+};

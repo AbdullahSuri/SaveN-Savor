@@ -55,30 +55,41 @@ router.post("/register", async (req, res) => {
     }
 });
 
-// POST /api/auth/login
+// In auth.js
 router.post("/login", async (req, res) => {
+    console.log("🔍 Login payload:", req.body);
+
     try {
-        const { email, password } = req.body;
-
-        const vendor = await Vendor.findOne({ email });
-        if (!vendor) return res.status(400).json({ message: "Vendor not found" });
-
-        const isMatch = await bcrypt.compare(password, vendor.password);
-        if (!isMatch) return res.status(400).json({ message: "Invalid password" });
-
-        res.json({
-            user: {
-                id: vendor._id,
-                name: vendor.name,
-                email: vendor.email,
-                businessName: vendor.businessName,
-                location: vendor.location,
-            },
-        });
+      const { email, password } = req.body;
+  
+      const vendor = await Vendor.findOne({ email });
+      if (!vendor) return res.status(400).json({ message: "Vendor not found" });
+  
+      const isMatch = await bcrypt.compare(password, vendor.password);
+      if (!isMatch) return res.status(400).json({ message: "Invalid password" });
+  
+      // Generate JWT token
+      const token = jwt.sign(
+        { userId: vendor._id },
+        process.env.JWT_SECRET || 'your-secret-key',
+        { expiresIn: '24h' }
+      );
+  
+      // Return user data with token
+      res.json({
+        token,
+        user: {
+          id: vendor._id,
+          name: vendor.name,
+          email: vendor.email,
+          businessName: vendor.businessName,
+          location: vendor.location,
+        },
+      });
     } catch (err) {
-        console.error("Login error:", err);
-        res.status(500).json({ message: "Server error" });
+      console.error("Login error:", err);
+      res.status(500).json({ message: "Server error" });
     }
-});
+  });
 
 module.exports = router;

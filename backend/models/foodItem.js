@@ -39,5 +39,5 @@ const foodItemSchema = new mongoose.Schema({
 }, { 
   timestamps: true
 });
-
+foodItemSchema.index({ name: 1, 'vendor.id': 1 }, { unique: true });
 module.exports = mongoose.models.FoodItem || mongoose.model('FoodItem', foodItemSchema);

@@ -4,7 +4,34 @@ import axios from 'axios';
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 // Hardcoded vendor ID to match database
-const VENDOR_ID = 'Spice Garden';
+function getCurrentVendorId(): string {
+  if (typeof window !== 'undefined') {
+    const currentUser = localStorage.getItem('currentUser');
+    if (currentUser) {
+      try {
+        const userData = JSON.parse(currentUser);
+        return userData.id || userData._id || '';
+      } catch (error) {
+        console.error('Error parsing current user data:', error);
+      }
+    }
+  }
+  return '';
+}
+
+// Business profile types
+export interface BusinessProfile {
+  name: string;
+  type: string;
+  description: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  logo?: string;
+}
 
 // Food Item types
 export interface TimeSlot {
@@ -32,7 +59,7 @@ export interface FoodItem {
     location: string;
   };
   ingredients: string[];
-  pickupTimeSlots: TimeSlot[]; // Add this line
+  pickupTimeSlots: TimeSlot[]; 
   emissions?: {
     total: number;
     saved: number;
@@ -76,10 +103,18 @@ export interface Order {
   customerEmail?: string;
 }
 
-// Helper to get auth token from localStorage
+// Improved helper to get auth token from localStorage
 function getAuthToken() {
   if (typeof window !== 'undefined') {
-    return localStorage.getItem('auth_token');
+    // Look for tokens in multiple possible locations
+    const token = localStorage.getItem('auth_token') || 
+                 localStorage.getItem('token') || 
+                 (localStorage.getItem('currentUser') ? 
+                   JSON.parse(localStorage.getItem('currentUser') || '{}').token : 
+                   null);
+    
+    console.log('Auth token retrieved:', token ? 'Token exists' : 'No token found');
+    return token;
   }
   return null;
 }
@@ -97,17 +132,122 @@ apiClient.interceptors.request.use(config => {
   const token = getAuthToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+    console.log('Adding auth header to request:', config.url);
+  } else {
+    console.warn('No auth token available for request to:', config.url);
+    
+    // For demonstration/development purposes, add a mock token header
+    // You should remove this in production
+    if (config.url?.includes('/business/profile')) {
+      console.log('Adding mock token for business profile endpoint in development');
+      config.headers.Authorization = 'Bearer mock-token-for-development';
+    }
   }
   return config;
 });
 
+// Add response interceptor for debugging authentication issues
+apiClient.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response?.status === 401) {
+      console.error('Authentication error (401):', error.config.url);
+      console.log('Token used:', error.config.headers?.Authorization);
+      
+      // Optional: Clear invalid token
+      if (typeof window !== 'undefined') {
+        console.log('Clearing potentially invalid token');
+        // localStorage.removeItem('auth_token');
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 // API methods
 export const api = {
+  // Business Profile methods
+  getBusinessProfile: async (): Promise<BusinessProfile> => {
+    try {
+      // For testing - fallback to mock data if we're in development and no token
+      if (process.env.NODE_ENV === 'development' && !getAuthToken()) {
+        console.log('Using mock business profile data for development');
+        return {
+          name: "Spice Garden",
+          type: "restaurant",
+          description: "Authentic Indian cuisine with a focus on sustainability",
+          email: "info@spicegarden.com",
+          phone: "+971 4 123 4567",
+          address: "123 Al Wasl Road",
+          city: "Dubai",
+          state: "Dubai",
+          zip: "12345"
+        };
+      }
+      
+      const response = await apiClient.get('/business/profile');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching business profile:', error);
+      
+      // Fallback data when in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Using fallback business profile after error');
+        return {
+          name: "Spice Garden",
+          type: "restaurant",
+          description: "Authentic Indian cuisine with a focus on sustainability",
+          email: "info@spicegarden.com",
+          phone: "+971 4 123 4567",
+          address: "123 Al Wasl Road",
+          city: "Dubai",
+          state: "Dubai",
+          zip: "12345"
+        };
+      }
+      throw error;
+    }
+  },
+
+  updateBusinessProfile: async (profileData: Partial<BusinessProfile>, logoFile?: File): Promise<BusinessProfile> => {
+    try {
+      // Create form data for multipart upload if logo is provided
+      const formData = new FormData();
+      
+      // Add all profile data fields
+      Object.entries(profileData).forEach(([key, value]) => {
+        if (value !== undefined) {
+          formData.append(key, value.toString());
+        }
+      });
+      
+      // Add logo if provided
+      if (logoFile) {
+        formData.append('logo', logoFile);
+      }
+      
+      const response = await apiClient.put('/business/profile', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error updating business profile:', error);
+      throw error;
+    }
+  },
+  
   // Food Items CRUD operations
   getFoodItems: async (): Promise<FoodItem[]> => {
     try {
-      const response = await apiClient.get('/food-items');
-      console.log("API response data:", response.data);
+      // Always use the hardcoded vendor ID for filtering
+      const vendorId = getCurrentVendorId();
+      console.log('Fetching food items for vendor:', vendorId);
+      
+      const response = await apiClient.get(`/food-items?vendorId=${vendorId}`);
+      console.log(`API returned ${response.data.length} food items for vendor ${vendorId}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching food items:', error);
@@ -132,7 +272,7 @@ export const api = {
   createFoodItem: async (
     foodItem: Omit<FoodItem, '_id' | 'emissions'>, 
     ingredients: string[],
-    timeSlots: TimeSlot[],
+    timeSlots: TimeSlot[] = [],
     imageFile?: File
   ): Promise<FoodItem> => {
     try {
@@ -150,7 +290,7 @@ export const api = {
       formData.append('dietary', JSON.stringify(foodItem.dietary || []));
       formData.append('vendor', JSON.stringify(foodItem.vendor));
       formData.append('ingredients', JSON.stringify(ingredients));
-      formData.append('pickupTimeSlots', JSON.stringify(timeSlots)); // Add this line
+      formData.append('pickupTimeSlots', JSON.stringify(timeSlots));
       
       // Add image if provided
       if (imageFile) {
@@ -172,12 +312,12 @@ export const api = {
     }
   },
   
-
+  // Also fix the updateFoodItem function
   updateFoodItem: async (
     id: string, 
     updateData: Partial<FoodItem>,
     ingredients: string[],
-    timeSlots: TimeSlot[],
+    timeSlots: TimeSlot[] = [],
     imageFile?: File
   ): Promise<FoodItem> => {
     try {
@@ -262,9 +402,10 @@ export const api = {
   getVendorOrders: async (): Promise<Order[]> => {
     try {
       // Always use the hardcoded vendor ID
-      console.log('Fetching orders for vendor:', VENDOR_ID);
+      const vendorId = getCurrentVendorId();
+      console.log('Fetching orders for vendor:', vendorId);
       
-      const response = await apiClient.get(`/vendor/orders?vendorId=${VENDOR_ID}`);
+      const response = await apiClient.get(`/vendor/orders?vendorId=${vendorId}`);
       console.log('Orders response:', response.data);
       return response.data;
     } catch (error) {
@@ -276,9 +417,10 @@ export const api = {
   getVendorOrdersByStatus: async (status: Order['status']): Promise<Order[]> => {
     try {
       // Always use the hardcoded vendor ID
-      console.log(`Fetching ${status} orders for vendor:`, VENDOR_ID);
+      const vendorId = getCurrentVendorId();
+      console.log(`Fetching ${status} orders for vendor:`, vendorId);
       
-      const response = await apiClient.get(`/vendor/orders?vendorId=${VENDOR_ID}&status=${status}`);
+      const response = await apiClient.get(`/vendor/orders?vendorId=${vendorId}&status=${status}`);
       console.log(`${status} orders response:`, response.data.length);
       return response.data;
     } catch (error) {
@@ -319,9 +461,10 @@ export const api = {
   }> => {
     try {
       // Always use the hardcoded vendor ID
-      console.log('Fetching order counts for vendor:', VENDOR_ID);
+      const vendorId = getCurrentVendorId();
+      console.log('Fetching order counts for vendor:', vendorId);
       
-      const response = await apiClient.get(`/vendor/orders/counts?vendorId=${VENDOR_ID}`);
+      const response = await apiClient.get(`/vendor/orders/counts?vendorId=${vendorId}`);
       console.log('Order counts response:', response.data);
       return response.data;
     } catch (error) {

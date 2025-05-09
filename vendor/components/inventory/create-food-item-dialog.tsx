@@ -9,10 +9,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { api } from "@/services/api"
+import { api, TimeSlot } from "@/services/api" // Import TimeSlot type
 import { toast } from "react-toastify"
 import { FoodItemForm } from "@/components/inventory/food-item-form"
-import { TimeSlot } from "@/components/inventory/pickup-time-slots"
+import { useAuth } from "@/context/auth-context"
 
 interface CreateFoodItemDialogProps {
   children: ReactNode
@@ -22,18 +22,19 @@ interface CreateFoodItemDialogProps {
 export function CreateFoodItemDialog({ children, onSuccess }: CreateFoodItemDialogProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const { user } = useAuth() // Get the current user
 
   const handleSubmit = async (formData: any, ingredients: string[], timeSlots: TimeSlot[], imageFile?: File) => {
     setLoading(true)
     
     try {
-      // Add vendor information
+      // Add vendor information from the authenticated user
       const foodItemData = {
         ...formData,
         vendor: {
-          name: 'Spice Garden',
-          id: 'Spice Garden', // Matching the ID used in the backend
-          location: 'Dubai'
+          name: user?.businessName || user?.name || 'Unknown Vendor',
+          id: user?.id || 'unknown-id',
+          location: user?.location || 'Unknown Location'
         }
       }
       

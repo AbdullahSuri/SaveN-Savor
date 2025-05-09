@@ -8,15 +8,20 @@ const app = express();
 // Import models instead of defining them in server.js
 const FoodItem = require('./models/foodItem');
 const User = require('./models/user');
+const Vendor = require('./models/vendor');
+
 
 const emissionsRoutes = require('./routes/emissions');
 const authRoutes = require('./routes/auth');
 
 
-// Add this near the top of your server.js after importing models
-console.log('FoodItem schema structure:', Object.keys(FoodItem.schema.paths));
-console.log('Emissions field in schema:', FoodItem.schema.paths.emissions);
 
+// Add this near the top of your server.js after importing models
+
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
 // Middleware
 app.use(cors({
   origin: ['http://localhost:3000', 'http://localhost:3001'], // Add your frontend URL
@@ -24,10 +29,12 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// These should come BEFORE app.use('/api/auth', authRoutes);
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/emissions', emissionsRoutes);
+
 
 // Configure multer for memory storage
 const storage = multer.memoryStorage();
@@ -59,13 +66,28 @@ app.use((req, res, next) => {
 });
 
 // Routes
+app.get("/check-vendors", async (req, res) => {
+  const vendors = await Vendor.find({}).select("email");
+  res.json({count: vendors.length, emails: vendors.map(v => v.email)});
+});
 
 // GET all food items
+// GET all food items - with vendor filtering
 app.get('/api/food-items', async (req, res) => {
   try {
-    const items = await FoodItem.find().sort({ createdAt: -1 });
+    // Check if vendor ID is provided in query params
+    const vendorId = req.query.vendorId;
+    
+    // Create filter object
+    const filter = vendorId ? { 'vendor.id': vendorId } : {};
+    
+    // Find items with optional vendor filter
+    const items = await FoodItem.find(filter).sort({ createdAt: -1 });
+    
+    console.log(`Returning ${items.length} food items${vendorId ? ` for vendor ${vendorId}` : ''}`);
     res.json(items);
   } catch (error) {
+    console.error('Error fetching food items:', error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -543,7 +565,7 @@ const calculateEmissions = async (dishName, ingredients, quantity = 1, detail_le
 module.exports.calculateEmissions = calculateEmissions;
 
 // Start server
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`CORS enabled for frontend at port 3000`);
