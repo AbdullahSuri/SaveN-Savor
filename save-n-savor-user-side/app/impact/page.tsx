@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import { Leaf, Share2, Award, TrendingUp, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,94 +10,88 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { useUser } from "@/hooks/useUser"
 import { Skeleton } from "@/components/ui/skeleton"
-import Link from "next/link"
+import { toast } from "@/components/ui/use-toast"
+
+interface ImpactData {
+  ordersPlaced: number
+  foodSaved: number
+  co2Saved: number
+  moneySaved: number
+  rank: number
+  totalUsers: number
+  badges: {
+    name: string
+    level: number
+    progress: number
+    description: string
+  }[]
+  period: string
+}
 
 export default function ImpactPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<"weekly" | "monthly" | "all-time">("all-time")
-  const [impactData, setImpactData] = useState<any>(null)
+  const [impactData, setImpactData] = useState<ImpactData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
-  const { user: originalUser } = useUser() // Rename to originalUser
+  const { user } = useUser()
 
   // DEVELOPMENT BYPASS - Add this right after the useUser hook
-  const user = originalUser || { id: 'dev-user-123', name: 'Developer' } // Mock user for development
-  
+  const userId = user?._id
+
   useEffect(() => {
     async function loadImpact() {
-      if (user?.id) {
+      if (userId) {
         setLoading(true)
         try {
-          // Mock data - replace with actual API call in production
-          const mockData = {
-            allTime: {
-              ordersPlaced: 24,
-              foodSaved: 18.5,
-              co2Saved: 37.2,
-              moneySaved: 620,
-              badges: [
-                { name: "Food Rescuer", level: 2, progress: 80 },
-                { name: "Eco Warrior", level: 1, progress: 60 },
-                { name: "Regular Saver", level: 3, progress: 100 },
-              ],
-              rank: 128,
-              totalUsers: 5280,
-            },
-            monthly: {
-              ordersPlaced: 6,
-              foodSaved: 4.2,
-              co2Saved: 8.4,
-              moneySaved: 150,
-              badges: [
-                { name: "Food Rescuer", level: 2, progress: 40 },
-                { name: "Eco Warrior", level: 1, progress: 30 },
-                { name: "Regular Saver", level: 3, progress: 70 },
-              ],
-              rank: 85,
-              totalUsers: 3120,
-            },
-            weekly: {
-              ordersPlaced: 2,
-              foodSaved: 1.5,
-              co2Saved: 3.0,
-              moneySaved: 45,
-              badges: [
-                { name: "Food Rescuer", level: 2, progress: 20 },
-                { name: "Eco Warrior", level: 1, progress: 15 },
-                { name: "Regular Saver", level: 3, progress: 25 },
-              ],
-              rank: 62,
-              totalUsers: 1850,
-            }
-          };
-          setImpactData(mockData)
+          const response = await fetch(`/api/impact?userId=${userId}&period=${selectedPeriod}`)
+
+          if (!response.ok) {
+            throw new Error("Failed to fetch impact data")
+          }
+
+          const data = await response.json()
+          setImpactData(data)
         } catch (error) {
+          console.error("Error loading impact data:", error)
           setError(error as Error)
+          toast({
+            title: "Error",
+            description: "Failed to load impact data. Please try again later.",
+            variant: "destructive",
+          })
         } finally {
           setLoading(false)
         }
+      } else {
+        // No user ID, so set loading to false
+        setLoading(false)
       }
     }
 
     loadImpact()
-  }, [user?.id])
+  }, [userId, selectedPeriod])
 
   const handleShare = async () => {
     try {
-      const currentData = impactData[selectedPeriod === "all-time" ? "allTime" : selectedPeriod]
+      if (!impactData) return
+
       const shareData = {
-        title: 'My Food Rescue Impact',
-        text: `I've rescued ${currentData.foodSaved}kg of food and saved ${currentData.co2Saved}kg of CO₂ with Save N' Savor!`,
+        title: "My Food Rescue Impact",
+        text: `I've saved ${impactData.ordersPlaced} meals from getting wasted and saved ${impactData.co2Saved.toFixed(1)}kg of CO₂ with Save N' Savor!`,
         url: window.location.href,
       }
-      
+
       if (navigator.share) {
         await navigator.share(shareData)
       } else {
         await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`)
-        alert('Copied to clipboard!')
+        toast({
+          title: "Copied to clipboard!",
+          description: "Your impact has been copied to the clipboard.",
+        })
       }
     } catch (err) {
-      console.error('Error sharing:', err)
+      console.error("Error sharing:", err)
     }
   }
 
@@ -105,10 +100,7 @@ export default function ImpactPage() {
       <div className="container mx-auto px-4 py-8 text-center">
         <h1 className="text-3xl font-bold text-green-600 mb-4">Something went wrong</h1>
         <p className="text-gray-600 mb-6">We couldn't load your impact data</p>
-        <Button 
-          onClick={() => window.location.reload()}
-          className="bg-green-600 hover:bg-green-700"
-        >
+        <Button onClick={() => window.location.reload()} className="bg-green-600 hover:bg-green-700">
           Try Again
         </Button>
       </div>
@@ -135,13 +127,13 @@ export default function ImpactPage() {
             <Skeleton className="h-10 w-64 mx-auto mb-4" />
             <Skeleton className="h-6 w-80 mx-auto" />
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             {[...Array(4)].map((_, i) => (
               <Skeleton key={i} className="h-32 rounded-lg" />
             ))}
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <Skeleton className="h-96" />
             <Skeleton className="h-96" />
@@ -151,8 +143,6 @@ export default function ImpactPage() {
       </div>
     )
   }
-
-  const currentData = impactData[selectedPeriod === "all-time" ? "allTime" : selectedPeriod]
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -165,7 +155,10 @@ export default function ImpactPage() {
         </div>
 
         <div className="mb-8">
-          <Tabs value={selectedPeriod} onValueChange={setSelectedPeriod}>
+          <Tabs
+            value={selectedPeriod}
+            onValueChange={(value) => setSelectedPeriod(value as "weekly" | "monthly" | "all-time")}
+          >
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="weekly">This Week</TabsTrigger>
               <TabsTrigger value="monthly">This Month</TabsTrigger>
@@ -174,22 +167,13 @@ export default function ImpactPage() {
           </Tabs>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
           <Card className="bg-green-50 border-green-100">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg text-green-700">Orders Placed</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-green-600">{currentData.ordersPlaced}</div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-green-50 border-green-100">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg text-green-700">Food Rescued</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-green-600">{currentData.foodSaved} kg</div>
+              <div className="text-3xl font-bold text-green-600">{impactData.ordersPlaced}</div>
             </CardContent>
           </Card>
 
@@ -198,7 +182,7 @@ export default function ImpactPage() {
               <CardTitle className="text-lg text-green-700">CO₂ Saved</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-green-600">{currentData.co2Saved} kg</div>
+              <div className="text-3xl font-bold text-green-600">{impactData.co2Saved.toFixed(1)} kg</div>
             </CardContent>
           </Card>
 
@@ -207,7 +191,7 @@ export default function ImpactPage() {
               <CardTitle className="text-lg text-green-700">Money Saved</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-green-600">AED {currentData.moneySaved}</div>
+              <div className="text-3xl font-bold text-green-600">AED {impactData.moneySaved.toFixed(0)}</div>
             </CardContent>
           </Card>
         </div>
@@ -223,7 +207,7 @@ export default function ImpactPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
-                {currentData.badges.map((badge: any, index: number) => (
+                {impactData.badges.map((badge, index) => (
                   <div key={index} className="space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center">
@@ -262,12 +246,12 @@ export default function ImpactPage() {
             <CardContent className="text-center">
               <div className="w-32 h-32 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-green-600">#{currentData.rank}</div>
-                  <div className="text-sm text-green-700">of {currentData.totalUsers}</div>
+                  <div className="text-3xl font-bold text-green-600">#{impactData.rank}</div>
+                  <div className="text-sm text-green-700">of {impactData.totalUsers}</div>
                 </div>
               </div>
               <p className="text-gray-600 mb-4">
-                You're in the top {Math.round((currentData.rank / currentData.totalUsers) * 100)}% of food rescuers!
+                You're in the top {Math.round((impactData.rank / impactData.totalUsers) * 100)}% of food rescuers!
               </p>
               <div className="flex justify-center">
                 <Badge className="bg-green-600">Keep it up!</Badge>
@@ -318,8 +302,8 @@ export default function ImpactPage() {
                 </div>
                 <h3 className="font-bold mb-2">Reduced Food Waste</h3>
                 <p className="text-gray-600 text-sm">
-                  By rescuing {currentData.foodSaved} kg of food, you've prevented perfectly good food from ending up in
-                  landfills.
+                  By ordering {impactData.ordersPlaced} meals, you've prevented perfectly good food from
+                  ending up in landfills, helping to reduce methane emissions.
                 </p>
               </CardContent>
             </Card>
@@ -330,8 +314,9 @@ export default function ImpactPage() {
                 </div>
                 <h3 className="font-bold mb-2">Lower Carbon Footprint</h3>
                 <p className="text-gray-600 text-sm">
-                  Your actions have prevented {currentData.co2Saved} kg of CO₂ emissions, equivalent to driving
-                  approximately {Math.round(currentData.co2Saved * 4)} km in a car.
+                  Your actions have prevented {impactData.co2Saved.toFixed(1)} kg of CO₂ emissions, equivalent to
+                  driving approximately {Math.round(impactData.co2Saved * 4)} km in a car or planting{" "}
+                  {Math.round(impactData.co2Saved / 20)} trees.
                 </p>
               </CardContent>
             </Card>
@@ -342,8 +327,8 @@ export default function ImpactPage() {
                 </div>
                 <h3 className="font-bold mb-2">Community Support</h3>
                 <p className="text-gray-600 text-sm">
-                  You've supported local businesses while saving AED {currentData.moneySaved} on quality food for
-                  yourself and your family.
+                  You've supported local businesses while saving AED {impactData.moneySaved.toFixed(0)} on quality food
+                  for yourself and your family, contributing to a more sustainable local economy.
                 </p>
               </CardContent>
             </Card>
