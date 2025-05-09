@@ -5,14 +5,15 @@ import { useRouter } from "next/navigation"
 import axios from 'axios'
 
 // API base URL - should match your existing API
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'http://localhost:4000/api';
 
 // Define the User type
 export type User = {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "vendor" | "user";
+  businessName: string;
+  location: string;
 }
 
 // Registration data type
@@ -41,7 +42,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   login: async () => false,
   register: async () => false,
-  logout: () => {},
+  logout: () => { },
   error: null,
 });
 
@@ -57,72 +58,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Check if the user is logged in on mount
   useEffect(() => {
-    const checkLoggedIn = async () => {
-      try {
-        // Check if there's a token in localStorage
-        const token = localStorage.getItem("auth_token");
-        
-        if (token) {
-          // Set up axios headers for authentication
-          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          
-          try {
-            // Try to get the user data from the API
-            const response = await axios.get(`${API_URL}/auth/me`);
-            const userData = response.data;
-            
-            // Set the user data
-            setUser({
-              id: userData._id || userData.id,
-              email: userData.email,
-              name: userData.name || userData.vendorName || 'User',
-              role: userData.role || 'vendor',
-            });
-          } catch (err) {
-            // If the token is invalid, remove it
-            localStorage.removeItem("auth_token");
-            setUser(null);
-          }
-        }
-      } catch (err) {
-        console.error("Authentication error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    checkLoggedIn();
+    const storedUser = localStorage.getItem("currentUser");
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+    setLoading(false);
   }, []);
 
   // Login function
   const login = async (email: string, password: string) => {
     setLoading(true);
     setError(null);
-    
+
     try {
       // Call the API to login
       const response = await axios.post(`${API_URL}/auth/login`, {
         email,
         password,
       });
-      
+
       const data = response.data;
-      
-      if (data.token) {
-        // Store the token
-        localStorage.setItem("auth_token", data.token);
-        
-        // Set up axios headers for future requests
-        axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
-        
+
+      if (data.user) {
+        // store the current user
+        localStorage.setItem("currentUser", JSON.stringify(data.user));
+
         // Set the user data
         setUser({
           id: data.user._id || data.user.id,
           email: data.user.email,
-          name: data.user.name || data.user.vendorName || 'User',
-          role: data.user.role || 'vendor',
+          name: data.user.name || data.vendorName || 'User',
+          businessName: data.user.businessName,
+          location: data.user.location,
         });
-        
+
         return true;
       } else {
         setError("Invalid credentials");
@@ -141,28 +110,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (data: RegistrationData) => {
     setLoading(true);
     setError(null);
-    
+
     try {
       // Call the API to register
       const response = await axios.post(`${API_URL}/auth/register`, data);
-      
+
       const responseData = response.data;
-      
-      if (responseData.token) {
+
+      if (responseData.user) {
         // Store the token
-        localStorage.setItem("auth_token", responseData.token);
-        
-        // Set up axios headers for future requests
-        axios.defaults.headers.common['Authorization'] = `Bearer ${responseData.token}`;
-        
+        localStorage.setItem("currentUser", JSON.stringify(responseData.user));
+
         // Set the user data
         setUser({
           id: responseData.user._id || responseData.user.id,
           email: responseData.user.email,
           name: responseData.user.name || data.vendorName || 'User',
-          role: responseData.user.role || 'vendor',
+          businessName: responseData.user.businessName,
+          location: responseData.user.location,
         });
-        
+
         return true;
       } else {
         setError("Registration failed");
@@ -179,99 +146,90 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Logout function
   const logout = () => {
-    // Remove the token from localStorage
-    localStorage.removeItem("auth_token");
-    
-    // Remove the Authorization header
-    delete axios.defaults.headers.common['Authorization'];
-    
-    // Reset the user state
+    localStorage.removeItem("currentUser");
     setUser(null);
-    
-    // Redirect to login page
     router.push("/login");
   };
 
-  // Mock login for demo purposes
-  const mockLogin = async (email: string, password: string) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // For demo purposes, we'll use hardcoded credentials
-      if (email === "admin@spicegarden.com" && password === "password") {
-        // Create mock user data
-        const userData: User = {
-          id: "vendor-123",
-          email: "admin@spicegarden.com",
-          name: "Spice Garden Admin",
-          role: "vendor",
-        };
-        
-        // Store a mock token
-        localStorage.setItem("auth_token", "mock_token_12345");
-        
-        // Set the user data
-        setUser(userData);
-        
-        return true;
-      } else {
-        setError("Invalid email or password");
-        return false;
-      }
-    } catch (err) {
-      console.error("Login error:", err);
-      setError("An error occurred during login");
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  };
+  // // Mock login for demo purposes
+  // const mockLogin = async (email: string, password: string) => {
+  //   setLoading(true);
+  //   setError(null);
 
-  // Mock registration for demo purposes
-  const mockRegister = async (data: RegistrationData) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // For demo purposes, simulate a successful registration
-      // In a real app, this would validate and store the user data
-      
-      // Create mock user data
-      const userData: User = {
-        id: "new-vendor-" + Date.now(),
-        email: data.email,
-        name: data.name,
-        role: "vendor",
-      };
-      
-      // Store a mock token
-      localStorage.setItem("auth_token", "mock_register_token_" + Date.now());
-      
-      // Set the user data
-      setUser(userData);
-      
-      return true;
-    } catch (err) {
-      console.error("Registration error:", err);
-      setError("An error occurred during registration");
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  };
+  //   try {
+  //     // For demo purposes, we'll use hardcoded credentials
+  //     if (email === "admin@spicegarden.com" && password === "password") {
+  //       // Create mock user data
+  //       const userData: User = {
+  //         id: "vendor-123",
+  //         email: "admin@spicegarden.com",
+  //         name: "Spice Garden Admin",
+  //       };
+
+  //       // Store a mock token
+  //       localStorage.setItem("auth_token", "mock_token_12345");
+
+  //       // Set the user data
+  //       setUser(userData);
+
+  //       return true;
+  //     } else {
+  //       setError("Invalid email or password");
+  //       return false;
+  //     }
+  //   } catch (err) {
+  //     console.error("Login error:", err);
+  //     setError("An error occurred during login");
+  //     return false;
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+  // // Mock registration for demo purposes
+  // const mockRegister = async (data: RegistrationData) => {
+  //   setLoading(true);
+  //   setError(null);
+
+  //   try {
+  //     // For demo purposes, simulate a successful registration
+  //     // In a real app, this would validate and store the user data
+
+  //     // Create mock user data
+  //     const userData: User = {
+  //       id: "new-vendor-" + Date.now(),
+  //       email: data.email,
+  //       name: data.name,
+  //       role: "vendor",
+  //     };
+
+  //     // Store a mock token
+  //     localStorage.setItem("auth_token", "mock_register_token_" + Date.now());
+
+  //     // Set the user data
+  //     setUser(userData);
+
+  //     return true;
+  //   } catch (err) {
+  //     console.error("Registration error:", err);
+  //     setError("An error occurred during registration");
+  //     return false;
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   return (
-    <AuthContext.Provider 
-      value={{ 
-        user, 
-        loading, 
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
         // Use the real login function if in production, otherwise use the mock login
-        login: process.env.NODE_ENV === 'production' ? login : mockLogin,
+        login: process.env.NODE_ENV === 'production' ? login : login,
         // Use the real register function if in production, otherwise use the mock register 
-        register: process.env.NODE_ENV === 'production' ? register : mockRegister,
-        logout, 
-        error 
+        register: process.env.NODE_ENV === 'production' ? register : register,
+        logout,
+        error
       }}
     >
       {children}
