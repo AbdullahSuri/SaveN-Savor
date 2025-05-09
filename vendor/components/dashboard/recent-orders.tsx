@@ -6,67 +6,107 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useRouter } from "next/navigation"
+import { api, Order } from "@/services/api"
+import { AlertCircle } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export function RecentOrders() {
+  const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
-  
-  // Simulate loading state
+
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false)
-    }, 1600)
-    
-    return () => clearTimeout(timer)
+    async function fetchOrders() {
+      try {
+        setLoading(true)
+        // Fetch all orders
+        const allOrders = await api.getVendorOrders()
+        
+        // Sort by date (newest first) and take the most recent 4
+        const sortedOrders = allOrders
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+          .slice(0, 4)
+        
+        setOrders(sortedOrders)
+        setError(null)
+      } catch (err) {
+        console.error("Failed to fetch orders:", err)
+        setError("Could not load recent orders")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchOrders()
   }, [])
 
-  // Larger mock order data
-  const orders = [
-    {
-      id: "ORD-7842",
-      customer: "Sarah Ahmed",
-      items: "Chicken Biryani, Garlic Naan (2), Mango Lassi",
-      total: "$38.75",
-      status: "Ready for pickup",
-      time: "Today, 2:30 PM",
-      avatar: "/diverse-group.png",
-    },
-    {
-      id: "ORD-7841",
-      customer: "Michael Chen",
-      items: "Butter Chicken, Vegetable Samosas (4), Rice, Raita",
-      total: "$42.50",
-      status: "Completed",
-      time: "Today, 1:15 PM",
-      avatar: "/diverse-group.png",
-    },
-    {
-      id: "ORD-7840",
-      customer: "Aisha Khan",
-      items: "Vegetable Curry, Paneer Tikka, Garlic Naan, Chai Tea (2)",
-      total: "$36.25",
-      status: "Pending",
-      time: "Today, 3:45 PM",
-      avatar: "/diverse-group.png",
-    },
-    {
-      id: "ORD-7839",
-      customer: "David Wilson",
-      items: "Family Feast: Mixed Grill, Curry Selection, Bread Basket, Dessert Platter",
-      total: "$89.00",
-      status: "Completed",
-      time: "Today, 12:10 PM",
-      avatar: "/diverse-group.png",
-    },
-  ]
+  // Format order items into readable string
+  const formatOrderItems = (items: Order['items']) => {
+    return items.map(item => `${item.name} (${item.quantity})`).join(", ")
+  }
+
+  // Format date nicely
+  const formatDate = (dateString: string) => {
+    const orderDate = new Date(dateString)
+    const today = new Date()
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+    
+    // Check if the order was today
+    if (orderDate.toDateString() === today.toDateString()) {
+      return `Today, ${orderDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    }
+    
+    // Check if the order was yesterday
+    if (orderDate.toDateString() === yesterday.toDateString()) {
+      return `Yesterday, ${orderDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    }
+    
+    // Otherwise format with date
+    return orderDate.toLocaleDateString([], { 
+      month: 'short', 
+      day: 'numeric' 
+    }) + `, ${orderDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+  }
+
+  const getStatusColor = (status: Order['status']) => {
+    switch (status) {
+      case "ready for pickup":
+        return "bg-emerald-500"
+      case "completed":
+        return "bg-blue-500"
+      case "pending":
+        return "bg-amber-500"
+      case "confirmed":
+        return "bg-indigo-500"
+      case "cancelled":
+        return "bg-red-500"
+      default:
+        return "bg-gray-500"
+    }
+  }
+
+  const formatStatus = (status: string) => {
+    return status.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+  }
 
   return (
     <Card className="h-full">
       <CardHeader>
         <CardTitle>Recent Orders</CardTitle>
-        <CardDescription>You have {orders.length} recent orders.</CardDescription>
+        <CardDescription>
+          {loading ? "Loading orders..." : error ? "Error loading orders" : `You have ${orders.length} recent orders.`}
+        </CardDescription>
       </CardHeader>
       <CardContent>
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        
         {loading ? (
           // Loading skeleton
           <div className="space-y-4">
@@ -84,31 +124,45 @@ export function RecentOrders() {
               </div>
             ))}
           </div>
+        ) : orders.length === 0 && !error ? (
+          <p className="text-center text-muted-foreground py-6">No recent orders found.</p>
         ) : (
           <div className="space-y-4">
             {orders.map((order) => (
-              <div key={order.id} className="flex items-center justify-between space-x-4">
+              <div key={order._id} className="flex items-center justify-between space-x-4">
                 <div className="flex items-center space-x-4">
                   <Avatar>
-                    <AvatarImage src={order.avatar || "/placeholder.svg"} alt={order.customer} />
-                    <AvatarFallback>{order.customer.substring(0, 2)}</AvatarFallback>
+                    <AvatarImage 
+                      src="/diverse-group.png" 
+                      alt={order.customerName || "Customer"} 
+                    />
+                    <AvatarFallback>
+                      {(order.customerName || "CU").substring(0, 2)}
+                    </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="text-sm font-medium leading-none">{order.customer}</p>
-                    <p className="text-sm text-muted-foreground">{order.items}</p>
+                    <p className="text-sm font-medium leading-none">
+                      {order.customerName || "Customer"}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatOrderItems(order.items)}
+                    </p>
                     <div className="flex items-center pt-1">
-                      <p className="text-xs text-muted-foreground">{order.time}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(order.date)}
+                      </p>
                       <Badge
-                        variant={order.status === "Completed" ? "outline" : "default"}
-                        className={`ml-2 ${order.status === "Completed" ? "" : order.status === "Pending" ? "bg-amber-500" : "bg-emerald-500"}`}
+                        className={`ml-2 ${getStatusColor(order.status)}`}
                       >
-                        {order.status}
+                        {formatStatus(order.status)}
                       </Badge>
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center">
-                  <p className="font-medium">{order.total}</p>
+                  <p className="font-medium">
+                    ${order.total.toFixed(2)}
+                  </p>
                 </div>
               </div>
             ))}

@@ -141,41 +141,6 @@ export function BusinessSettings() {
       </CardHeader>
       
       <CardContent className="space-y-6">
-        {/* Logo Upload */}
-        <div className="flex flex-col items-center space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4">
-          <Avatar className="h-24 w-24">
-            {logoPreview ? (
-              <AvatarImage src={logoPreview} alt={businessData.name} />
-            ) : (
-              <AvatarFallback>{businessData.name?.substring(0, 2) || "BIZ"}</AvatarFallback>
-            )}
-          </Avatar>
-          
-          {isEditing && (
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium">Business Logo</h3>
-              <div className="flex space-x-2">
-                <Input
-                  id="logo"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleLogoChange}
-                  className="hidden"
-                  ref={fileInputRef}
-                />
-                <Button 
-                  type="button" 
-                  variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-2"
-                >
-                  <Upload className="h-4 w-4" />
-                  {logoFile ? 'Change Logo' : 'Upload Logo'}
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
         
         <div className="space-y-4">
           <div className="space-y-2">

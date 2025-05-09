@@ -19,6 +19,22 @@ function getCurrentVendorId(): string {
   return '';
 }
 
+function getCurrentVendorName(): string {
+  if (typeof window !== 'undefined') {
+    const currentUser = localStorage.getItem('currentUser');
+    if (currentUser) {
+      try {
+        const userData = JSON.parse(currentUser);
+        // Return business name instead of ID
+        return userData.businessName || userData.name || '';
+      } catch (error) {
+        console.error('Error parsing current user data:', error);
+      }
+    }
+  }
+  return '';
+}
+
 // Business profile types
 export interface BusinessProfile {
   name: string;
@@ -402,7 +418,7 @@ export const api = {
   getVendorOrders: async (): Promise<Order[]> => {
     try {
       // Always use the hardcoded vendor ID
-      const vendorId = getCurrentVendorId();
+      const vendorId = getCurrentVendorName();
       console.log('Fetching orders for vendor:', vendorId);
       
       const response = await apiClient.get(`/vendor/orders?vendorId=${vendorId}`);
@@ -417,7 +433,7 @@ export const api = {
   getVendorOrdersByStatus: async (status: Order['status']): Promise<Order[]> => {
     try {
       // Always use the hardcoded vendor ID
-      const vendorId = getCurrentVendorId();
+      const vendorId = getCurrentVendorName();
       console.log(`Fetching ${status} orders for vendor:`, vendorId);
       
       const response = await apiClient.get(`/vendor/orders?vendorId=${vendorId}&status=${status}`);
@@ -461,7 +477,7 @@ export const api = {
   }> => {
     try {
       // Always use the hardcoded vendor ID
-      const vendorId = getCurrentVendorId();
+      const vendorId = getCurrentVendorName();
       console.log('Fetching order counts for vendor:', vendorId);
       
       const response = await apiClient.get(`/vendor/orders/counts?vendorId=${vendorId}`);

@@ -46,30 +46,6 @@ export function QuickActions() {
           <ShoppingBag className="mr-2 h-4 w-4" />
           View Orders
         </Button>
-        <Button 
-          variant="outline" 
-          className="w-full justify-start"
-          onClick={() => handleExportData()}
-        >
-          <FileText className="mr-2 h-4 w-4" />
-          {isExporting ? 'Exporting...' : 'Export Weekly Report'}
-        </Button>
-        <Button 
-          variant="outline" 
-          className="w-full justify-start"
-          onClick={() => router.push('/insights')}
-        >
-          <BarChart3 className="mr-2 h-4 w-4" />
-          Analytics Dashboard
-        </Button>
-        <Button 
-          variant="outline" 
-          className="w-full justify-start"
-          onClick={() => router.push('/settings')}
-        >
-          <Settings className="mr-2 h-4 w-4" />
-          Account Settings
-        </Button>
       </CardContent>
     </Card>
   )

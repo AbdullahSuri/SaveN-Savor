@@ -51,23 +51,6 @@ export function ProfileSettings() {
         <CardDescription>Manage your personal information and account settings.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="flex flex-col items-center space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4">
-          <Avatar className="h-24 w-24">
-            <AvatarImage src="/cozy-italian-restaurant.png" alt="Restaurant" />
-            <AvatarFallback>RS</AvatarFallback>
-          </Avatar>
-          <div className="space-y-2">
-            <h3 className="text-lg font-medium">Profile Picture</h3>
-            <div className="flex space-x-2">
-              <Button variant="outline" size="sm">
-                Upload
-              </Button>
-              <Button variant="outline" size="sm">
-                Remove
-              </Button>
-            </div>
-          </div>
-        </div>
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
