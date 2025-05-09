@@ -10,15 +10,28 @@ const FoodItem = require('./models/foodItem');
 const User = require('./models/user');
 
 const emissionsRoutes = require('./routes/emissions');
+const authRoutes = require('./routes/auth');
 
 
 // Add this near the top of your server.js after importing models
 console.log('FoodItem schema structure:', Object.keys(FoodItem.schema.paths));
 console.log('Emissions field in schema:', FoodItem.schema.paths.emissions);
 
+// Middleware
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://localhost:3001'], // Add your frontend URL
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use('/api/auth', authRoutes);
+app.use('/api/emissions', emissionsRoutes);
+
 // Configure multer for memory storage
 const storage = multer.memoryStorage();
-const upload = multer({ 
+const upload = multer({
   storage: storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: (req, file, cb) => {
@@ -30,16 +43,8 @@ const upload = multer({
   }
 });
 
-// Middleware
-app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001'], // Add your frontend URL
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-app.use('/api/emissions', emissionsRoutes);
+
+
 
 // MongoDB connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/savensavor';
@@ -85,7 +90,7 @@ app.get('/api/food-items/:id/image', async (req, res) => {
     if (!item || !item.image.data) {
       return res.status(404).json({ message: 'Image not found' });
     }
-    
+
     // Send the base64 data
     res.setHeader('Content-Type', item.image.contentType);
     res.send(item.image.data);
@@ -101,12 +106,12 @@ app.get('/api/food-items/:id/image', async (req, res) => {
 app.post('/api/food-items', upload.single('image'), async (req, res) => {
   try {
     let itemData = {};
-    
+
     // Check if we have form data or JSON
     if (req.file || req.body.name) {
       // Parse form data
       console.log("Received form data:", req.body); // Debug
-      
+
       itemData = {
         name: req.body.name,
         category: req.body.category,
@@ -120,7 +125,7 @@ app.post('/api/food-items', upload.single('image'), async (req, res) => {
         ingredients: req.body.ingredients ? JSON.parse(req.body.ingredients) : [],
         pickupTimeSlots: req.body.pickupTimeSlots ? JSON.parse(req.body.pickupTimeSlots) : [] // Add this line
       };
-      
+
       // Handle image upload if present
       if (req.file) {
         itemData.image = {
@@ -132,28 +137,28 @@ app.post('/api/food-items', upload.single('image'), async (req, res) => {
       // JSON body
       itemData = req.body;
     }
-    
+
     // Calculate emissions based on ingredients using the emissions API
     try {
       console.log('Calculating emissions for:', itemData.name);
-      
+
       // Make a direct request to the emissions calculation module
       const emissionsRoutes = require('./routes/emissions');
-      
+
       // Create the request data
       const emissionsData = await emissionsRoutes.calculateEmissions(
-        itemData.name, 
+        itemData.name,
         itemData.ingredients,
         itemData.quantity || 1, // Use item quantity instead of hard-coded 1
         'detailed' // Use detailed calculation
       );
-      
+
       // Use the result
       itemData.emissions = {
         total: emissionsData.total,
         saved: emissionsData.saved
       };
-      
+
       console.log('Emissions calculation result:', itemData.emissions);
     } catch (emissionsError) {
       console.error('Error calculating emissions:', emissionsError);
@@ -164,9 +169,9 @@ app.post('/api/food-items', upload.single('image'), async (req, res) => {
       };
       console.log('Using fallback emissions:', itemData.emissions);
     }
-    
+
     console.log('Final item data to save:', itemData);
-    
+
     const foodItem = new FoodItem(itemData);
     const savedItem = await foodItem.save();
     console.log('Saved food item:', savedItem._id);
@@ -181,7 +186,7 @@ app.post('/api/food-items', upload.single('image'), async (req, res) => {
 app.put('/api/food-items/:id', upload.single('image'), async (req, res) => {
   try {
     let updateData = {};
-    
+
     // Check if we have form data or JSON
     if (req.file || req.body.name) {
       // Parse form data
@@ -198,14 +203,14 @@ app.put('/api/food-items/:id', upload.single('image'), async (req, res) => {
         ingredients: req.body.ingredients ? JSON.parse(req.body.ingredients) : undefined,
         pickupTimeSlots: req.body.pickupTimeSlots ? JSON.parse(req.body.pickupTimeSlots) : undefined // Add this line
       };
-      
+
       // Remove undefined values
       Object.keys(updateData).forEach(key => {
         if (updateData[key] === undefined) {
           delete updateData[key];
         }
       });
-      
+
       // Handle image upload if present
       if (req.file) {
         updateData.image = {
@@ -217,40 +222,40 @@ app.put('/api/food-items/:id', upload.single('image'), async (req, res) => {
       // JSON body
       updateData = req.body;
     }
-    
+
     // If ingredients changed, recalculate emissions
     if (updateData.ingredients) {
       try {
         const dishName = updateData.name || (await FoodItem.findById(req.params.id)).name || 'Food Item';
         console.log('Recalculating emissions for:', dishName);
-        
+
         // Make a direct request to the emissions calculation module
         const emissionsRoutes = require('./routes/emissions');
-        
+
         // Create the request data
         const emissionsData = await emissionsRoutes.calculateEmissions(
-          dishName, 
+          dishName,
           updateData.ingredients,
           updateData.quantity || 1, // Use item quantity instead of hard-coded 1
           'detailed' // Use detailed calculation
         );
-        
+
         // Use the result
         updateData.emissions = {
           total: emissionsData.total,
           saved: emissionsData.saved
         };
-        
+
         console.log('Updated emissions calculation:', updateData.emissions);
       } catch (emissionsError) {
         console.error('Error recalculating emissions:', emissionsError);
         // Don't update emissions if calculation fails
       }
     }
-    
+
     const item = await FoodItem.findByIdAndUpdate(
-      req.params.id, 
-      updateData, 
+      req.params.id,
+      updateData,
       { new: true, runValidators: true }
     );
     if (!item) {
@@ -284,40 +289,40 @@ app.get('/api/vendor/orders', async (req, res) => {
     // Extract vendor ID from token or query - use the ACTUAL vendor name from your database
     const vendorId = req.query.vendorId || "Spice Garden"; // Updated to match your DB
     const status = req.query.status;
-    
+
     console.log(`Searching for orders with vendor: ${vendorId}`);
-    
+
     // Find all users with orders that contain items from this vendor
     let usersQuery = { 'orders.items.vendor': vendorId };
-    
+
     // Add status filter if provided
     if (status) {
       usersQuery['orders.status'] = status;
       console.log(`Filtering by status: ${status}`);
     }
-    
+
     const users = await User.find(usersQuery);
     console.log(`Found ${users.length} users with matching orders`);
-    
+
     // Extract and format orders with vendor items
     const vendorOrders = [];
-    
+
     for (const user of users) {
       // Filter orders to include only those with items from this vendor
-      const userOrders = user.orders.filter(order => 
+      const userOrders = user.orders.filter(order =>
         order.items.some(item => item.vendor === vendorId)
       );
-      
+
       console.log(`User ${user.name} has ${userOrders.length} matching orders`);
-      
+
       // Add user details to orders
       for (const order of userOrders) {
         // Filter by status if requested
         if (status && order.status !== status) continue;
-        
+
         // Convert MongoDB document to plain object
         const orderObj = order.toObject ? order.toObject() : JSON.parse(JSON.stringify(order));
-        
+
         vendorOrders.push({
           ...orderObj,
           _id: order._id.toString(),
@@ -327,10 +332,10 @@ app.get('/api/vendor/orders', async (req, res) => {
         });
       }
     }
-    
+
     // Sort by date, newest first
     vendorOrders.sort((a, b) => new Date(b.date) - new Date(a.date));
-    
+
     console.log(`Returning ${vendorOrders.length} vendor orders`);
     res.json(vendorOrders);
   } catch (error) {
@@ -345,11 +350,11 @@ app.get('/api/vendor/orders/counts', async (req, res) => {
     // Extract vendor ID from token or query - use the ACTUAL vendor name from your database
     const vendorId = req.query.vendorId || "Spice Garden"; // Updated to match your DB
     console.log(`Fetching order counts for vendor: ${vendorId}`);
-    
+
     // Find all users with orders that contain items from this vendor
     const users = await User.find({ 'orders.items.vendor': vendorId });
     console.log(`Found ${users.length} users with orders from vendor ${vendorId}`);
-    
+
     // Initialize counts
     const counts = {
       total: 0,
@@ -359,15 +364,15 @@ app.get('/api/vendor/orders/counts', async (req, res) => {
       completed: 0,
       cancelled: 0
     };
-    
+
     // Count orders by status
     for (const user of users) {
-      const vendorOrders = user.orders.filter(order => 
+      const vendorOrders = user.orders.filter(order =>
         order.items.some(item => item.vendor === vendorId)
       );
-      
+
       counts.total += vendorOrders.length;
-      
+
       for (const order of vendorOrders) {
         switch (order.status) {
           case 'pending':
@@ -388,7 +393,7 @@ app.get('/api/vendor/orders/counts', async (req, res) => {
         }
       }
     }
-    
+
     console.log('Order counts:', counts);
     res.json(counts);
   } catch (error) {
@@ -402,34 +407,34 @@ app.put('/api/orders/:orderId/status', async (req, res) => {
   try {
     const { orderId } = req.params;
     const { status } = req.body;
-    
+
     console.log(`Updating order ${orderId} status to ${status}`);
-    
+
     if (!orderId || !status) {
       return res.status(400).json({ message: 'Order ID and status are required' });
     }
-    
+
     // Find user with the specified order
     const user = await User.findOne({ 'orders._id': orderId });
-    
+
     if (!user) {
       console.log(`Order ${orderId} not found in any user document`);
       return res.status(404).json({ message: 'Order not found' });
     }
-    
+
     // Update the order status
     const orderIndex = user.orders.findIndex(order => order._id.toString() === orderId);
-    
+
     if (orderIndex === -1) {
       console.log(`Order ${orderId} found in user ${user._id} but index couldn't be determined`);
       return res.status(404).json({ message: 'Order not found' });
     }
-    
+
     console.log(`Found order at index ${orderIndex} for user ${user._id}`);
     user.orders[orderIndex].status = status;
     await user.save();
     console.log(`Updated order ${orderId} status to ${status}`);
-    
+
     // Return the updated order with user info
     const updatedOrder = {
       ...user.orders[orderIndex].toObject(),
@@ -438,7 +443,7 @@ app.put('/api/orders/:orderId/status', async (req, res) => {
       customerEmail: user.email,
       userId: user._id.toString()
     };
-    
+
     res.json(updatedOrder);
   } catch (error) {
     console.error('Error updating order status:', error);
@@ -451,36 +456,36 @@ app.put('/api/orders/:orderId/complete', async (req, res) => {
   try {
     const { orderId } = req.params;
     console.log(`Completing order ${orderId} and updating inventory`);
-    
+
     // Find the order
     const user = await User.findOne({ 'orders._id': orderId });
-    
+
     if (!user) {
       console.log(`Order ${orderId} not found in any user document`);
       return res.status(404).json({ message: 'Order not found' });
     }
-    
+
     const orderIndex = user.orders.findIndex(order => order._id.toString() === orderId);
-    
+
     if (orderIndex === -1) {
       console.log(`Order ${orderId} found in user ${user._id} but index couldn't be determined`);
       return res.status(404).json({ message: 'Order not found' });
     }
-    
+
     const order = user.orders[orderIndex];
     console.log(`Found order with ${order.items.length} items`);
-    
+
     // Update the order status to completed
     order.status = 'completed';
     await user.save();
     console.log(`Updated order ${orderId} status to completed`);
-    
+
     // Update inventory for each item in the order
     for (const item of order.items) {
       try {
         console.log(`Updating inventory for item ${item.foodItemId}`);
         const foodItem = await FoodItem.findById(item.foodItemId);
-        
+
         if (foodItem) {
           console.log(`Found food item ${foodItem._id}, current quantity: ${foodItem.quantity}`);
           foodItem.quantity = Math.max(0, foodItem.quantity - item.quantity);
@@ -494,8 +499,8 @@ app.put('/api/orders/:orderId/complete', async (req, res) => {
         // Continue with other items even if one fails
       }
     }
-    
-    res.json({ 
+
+    res.json({
       message: 'Order completed and inventory updated',
       updatedItems: order.items.length
     });
@@ -507,8 +512,8 @@ app.put('/api/orders/:orderId/complete', async (req, res) => {
 
 // Health check route
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
     timestamp: new Date()
   });
@@ -538,7 +543,7 @@ const calculateEmissions = async (dishName, ingredients, quantity = 1, detail_le
 module.exports.calculateEmissions = calculateEmissions;
 
 // Start server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`CORS enabled for frontend at port 3000`);
